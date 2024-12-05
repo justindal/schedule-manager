@@ -31,6 +31,13 @@ interface Employee {
   email: string
 }
 
+interface ManagerQueryResult {
+  id: string
+  full_name: string
+  email: string
+  store_managers: { is_primary: boolean }[]
+}
+
 export default function StoreDetail({
   params,
 }: {
@@ -85,7 +92,7 @@ export default function StoreDetail({
 
     setStore(storeData)
     setManagers(
-      managersData?.map((manager: any) => ({
+      managersData?.map((manager: ManagerQueryResult) => ({
         id: manager.id,
         full_name: manager.full_name,
         email: manager.email,

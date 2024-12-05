@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { format, parseISO, addDays } from 'date-fns'
 import { PlusCircle, Trash } from 'lucide-react'
+import { User } from '@supabase/supabase-js'
 
 enum AvailabilityStatus {
   AVAILABLE = 'available',
@@ -50,7 +51,7 @@ export default function StoreAvailability({
   const [endTime, setEndTime] = useState<string>('03:00')
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
   const supabase = createClient()
 
   const isValidTimeRange = (start: string, end: string) => {

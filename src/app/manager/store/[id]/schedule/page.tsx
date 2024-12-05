@@ -36,6 +36,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Calendar as CalendarIcon } from 'lucide-react'
+import { PostgrestError } from '@supabase/supabase-js'
 
 interface Profile {
   id: string
@@ -139,7 +140,7 @@ export default function SchedulePage() {
         )
         .eq('store_id', storeId)) as {
         data: EmployeeJoinResult[] | null
-        error: any
+        error: PostgrestError | null
       }
 
       const { data: managerData, error: managerError } = (await supabase
@@ -155,7 +156,7 @@ export default function SchedulePage() {
         )
         .eq('store_id', storeId)) as {
         data: ManagerJoinResult[] | null
-        error: any
+        error: PostgrestError | null
       }
 
       if (employeeError) throw employeeError

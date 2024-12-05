@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { PostgrestError } from '@supabase/supabase-js'
 
 interface Profile {
   id: string
@@ -141,7 +142,7 @@ function AvailabilityTable({ storeId }: Props) {
         )
         .eq('store_id', storeId)) as {
         data: StoreEmployee[] | null
-        error: any
+        error: PostgrestError | null
       }
 
       const { data: storeManagers, error: managerError } = (await supabase
@@ -158,7 +159,7 @@ function AvailabilityTable({ storeId }: Props) {
           )
         `
         )
-        .eq('store_id', storeId)) as { data: StoreManager[] | null; error: any }
+        .eq('store_id', storeId)) as { data: StoreManager[] | null; error: PostgrestError | null }
 
       if (storeError) throw storeError
       if (managerError) throw managerError
