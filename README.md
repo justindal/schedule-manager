@@ -11,3 +11,11 @@ This is a schedule manager that allows managers to create and manage their store
 - Multiple manager support
 - Secure login system
 - Time tracking
+
+## Technologies
+- React
+- Next.js
+- Supabase
+- Tailwind CSS
+- shadcn/ui
+- PostgreSQL
