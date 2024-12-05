@@ -36,6 +36,7 @@ interface Profile {
 interface Employee {
   id: string
   full_name: string
+  is_manager: boolean
 }
 
 interface Shift {
@@ -64,9 +65,17 @@ interface AvailabilityData {
 }
 
 interface EmployeeJoinResult {
-  employee_id: string
+  employee_id: string | number
   profiles: {
-    id: string
+    id: string | number
+    full_name: string
+  }
+}
+
+interface ManagerJoinResult {
+  manager_id: string | number
+  profiles: {
+    id: string | number
     full_name: string
   }
 }
@@ -112,23 +121,59 @@ export default function EmployeeSchedulePage() {
         setShifts(shiftData ?? [])
       }
 
-      const { data: employeeData } = await supabase
+      const { data: employeeData, error: employeeError } = (await supabase
         .from('store_employees')
-        .select(`
+        .select(
+          `
           employee_id,
           profiles!inner (
             id,
             full_name
           )
-        `)
-        .eq('store_id', storeId) as { data: EmployeeJoinResult[] | null, error: any }
+        `
+        )
+        .eq('store_id', storeId)) as {
+        data: EmployeeJoinResult[] | null
+        error: any
+      }
 
-      setEmployees(
-        employeeData?.map((e) => ({
+      const { data: managerData, error: managerError } = (await supabase
+        .from('store_managers')
+        .select(
+          `
+          manager_id,
+          profiles!inner (
+            id,
+            full_name
+          )
+        `
+        )
+        .eq('store_id', storeId)) as {
+        data: ManagerJoinResult[] | null
+        error: any
+      }
+
+      if (employeeError) throw employeeError
+      if (managerError) throw managerError
+
+      const allStaff = [
+        ...(employeeData?.map((e) => ({
           id: e.employee_id,
           full_name: e.profiles.full_name,
-        })) ?? []
+          is_manager: false,
+        })) ?? []),
+        ...(managerData?.map((m) => ({
+          id: m.manager_id,
+          full_name: m.profiles.full_name,
+          is_manager: true,
+        })) ?? []),
+      ] as Employee[]
+
+      const uniqueStaff = Array.from(
+        new Map(allStaff.map((item) => [item.id, item])).values()
       )
+
+      setEmployees(uniqueStaff)
 
       const { data: availabilityData } = await supabase
         .from('availability')
