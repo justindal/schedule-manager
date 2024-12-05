@@ -315,7 +315,7 @@ export default function StoreAvailability({
           <div className='text-center p-8 border rounded-lg bg-gray-50'>
             <p className='text-muted-foreground'>No availabilities set yet.</p>
             <p className='text-sm text-muted-foreground'>
-              Click 'Set Availability' to add your availability.
+              Click &apos;Set Availability&apos; to add your availability.
             </p>
           </div>
         ) : (

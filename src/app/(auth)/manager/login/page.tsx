@@ -77,7 +77,7 @@ export default function ManagerLogin() {
             </Button>
             <div className='flex flex-col items-center gap-2 text-sm text-muted-foreground'>
               <p>
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
                 <Link
                   href='/manager/register'
                   className='text-primary hover:underline'

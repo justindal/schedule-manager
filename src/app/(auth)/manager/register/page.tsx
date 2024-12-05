@@ -31,7 +31,7 @@ export default function ManagerRegister() {
             Create Manager Account
           </CardTitle>
           <CardDescription>
-            Register to start managing your team's schedule
+            Register to start managing your team&apos;s schedule
           </CardDescription>
         </CardHeader>
 

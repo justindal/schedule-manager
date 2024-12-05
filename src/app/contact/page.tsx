@@ -45,7 +45,7 @@ export default function ContactPage() {
           {/* Contact Message */}
           <div className="text-center text-muted-foreground">
             <p>Feel free to reach out through any of these channels.</p>
-            <p>I'll get back to you as soon as possible!</p>
+            <p>I&apos;ll get back to you as soon as possible!</p>
           </div>
         </CardContent>
       </Card>
