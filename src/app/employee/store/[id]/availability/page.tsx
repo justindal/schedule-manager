@@ -216,12 +216,14 @@ export default function StoreAvailability({
             <form onSubmit={handleSubmit} className='space-y-4'>
               <div className='space-y-2'>
                 <Label>Select Date</Label>
-                <Calendar
-                  mode='single'
-                  selected={date}
-                  onSelect={setDate}
-                  className='rounded-md border'
-                />
+                <div className='flex justify-center'>
+                  <Calendar
+                    mode='single'
+                    selected={date}
+                    onSelect={setDate}
+                    className='rounded-md border'
+                  />
+                </div>
               </div>
 
               <div className='space-y-2'>
