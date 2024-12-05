@@ -21,7 +21,6 @@ export default function Home() {
             <span className='font-bold text-xl'>Schedule Manager</span>
           </div>
           <div className='flex gap-4'>
-            <Link href='/about'>About</Link>
             <Link href='/contact'>Contact</Link>
           </div>
         </div>
@@ -109,7 +108,7 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className='border-t mt-auto'>
+      {/* <footer className='border-t mt-auto'>
         <div className='max-w-7xl mx-auto px-4 py-8'>
           <div className='grid md:grid-cols-3 gap-8'>
             <div>
@@ -162,7 +161,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </footer>
+      </footer> */}
     </div>
   )
 }
