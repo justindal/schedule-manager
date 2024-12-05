@@ -84,6 +84,17 @@ interface AvailabilityData {
   end_time?: string
 }
 
+function calculateTotalHours(shifts: Shift[], employeeId: string): number {
+  return shifts
+    .filter(shift => shift.employee_id === employeeId)
+    .reduce((total, shift) => {
+      const start = new Date(shift.start_time)
+      const end = new Date(shift.end_time)
+      const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+      return total + hours
+    }, 0)
+}
+
 export default function SchedulePage() {
   const params = useParams()
   const storeId = params.id as string
@@ -368,6 +379,7 @@ export default function SchedulePage() {
                   {format(date, 'MMM d')}
                 </TableHead>
               ))}
+              <TableHead className='text-center w-[100px]'>Hours</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -411,6 +423,9 @@ export default function SchedulePage() {
                     </TableCell>
                   )
                 })}
+                <TableCell className='text-center font-medium'>
+                  {calculateTotalHours(shifts, employee.id).toFixed(2)}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
