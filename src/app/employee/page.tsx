@@ -59,7 +59,7 @@ export default async function EmployeeDashboard() {
                 </div>
                 <div className='flex gap-2'>
                   <Button variant='outline' size='sm' asChild>
-                    <Link href={`/manager/store/${record.stores.id}/schedule`}>
+                    <Link href={`/employee/store/${record.stores.id}/schedule`}>
                       <Calendar className='h-4 w-4 mr-2' />
                       Schedule
                     </Link>
