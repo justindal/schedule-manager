@@ -1,4 +1,3 @@
-// app/(dashboard)/manager/store/[id]/schedule/page.tsx
 'use client'
 
 import { useParams } from 'next/navigation'
@@ -312,7 +311,7 @@ export default function SchedulePage() {
                                 new Date(`2000-01-01T${avail.start_time}`),
                                 'h:mm a'
                               )}{' '}
-                              -{' '}
+                              - {/* spacing here */}
                               {format(
                                 new Date(`2000-01-01T${avail.end_time}`),
                                 'h:mm a'
@@ -365,7 +364,7 @@ export default function SchedulePage() {
                   key={date.toString()}
                   className='text-center min-w-[150px]'
                 >
-                  {format(date, 'EEE ')} 
+                  {format(date, 'EEE ')}
                   {format(date, 'MMM d')}
                 </TableHead>
               ))}
@@ -402,7 +401,7 @@ export default function SchedulePage() {
                       >
                         {shift ? (
                           <div className='text-sm'>
-                            {format(new Date(shift.start_time), 'h:mm a')} -
+                            {format(new Date(shift.start_time), 'h:mm a')} -{' '}
                             {format(new Date(shift.end_time), 'h:mm a')}
                           </div>
                         ) : (
