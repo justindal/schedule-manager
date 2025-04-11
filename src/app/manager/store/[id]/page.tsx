@@ -1,6 +1,6 @@
 'use client'
 
-import { createClient } from '@/app/utils/supabase/client'
+import { createClientBrowser } from '@/app/utils/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -51,13 +51,14 @@ export default function StoreDetail({
   const [managers, setManagers] = useState<Manager[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [newEmail, setNewEmail] = useState('')
+  const [removing, setRemoving] = useState<string | null>(null)
 
   useEffect(() => {
     loadStoreData()
   }, [id])
 
   async function loadStoreData() {
-    const supabase = createClient()
+    const supabase = createClientBrowser()
 
     const { data: storeData } = await supabase
       .from('stores')
@@ -106,7 +107,7 @@ export default function StoreDetail({
   async function handleStoreUpdate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
-    const supabase = createClient()
+    const supabase = createClientBrowser()
 
     await supabase
       .from('stores')
@@ -122,7 +123,7 @@ export default function StoreDetail({
   }
 
   async function addPerson(email: string, role: 'manager' | 'employee') {
-    const supabase = createClient()
+    const supabase = createClientBrowser()
 
     const { data: user } = await supabase
       .from('profiles')
@@ -152,10 +153,42 @@ export default function StoreDetail({
     loadStoreData()
   }
 
+  async function removePerson(userId: string, role: 'manager' | 'employee') {
+    try {
+      setRemoving(userId)
+      const supabase = createClientBrowser()
+
+      if (role === 'manager') {
+        const { error } = await supabase
+          .from('store_managers')
+          .delete()
+          .eq('store_id', id)
+          .eq('manager_id', userId)
+
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .from('store_employees')
+          .delete()
+          .eq('store_id', id)
+          .eq('employee_id', userId)
+
+        if (error) throw error
+      }
+
+      loadStoreData()
+    } catch (error) {
+      console.error(`Error removing ${role}:`, error)
+      alert(`Failed to remove ${role}`)
+    } finally {
+      setRemoving(null)
+    }
+  }
+
   async function leaveStore() {
     if (!confirm('Are you sure you want to leave this store?')) return
 
-    const supabase = createClient()
+    const supabase = createClientBrowser()
     const user = (await supabase.auth.getUser()).data.user
 
     try {
@@ -325,6 +358,14 @@ export default function StoreDetail({
                         {employee.email}
                       </div>
                     </div>
+                    <Button
+                      variant='ghost'
+                      size='sm'
+                      onClick={() => removePerson(employee.id, 'employee')}
+                      disabled={removing === employee.id}
+                    >
+                      <Trash className='h-4 w-4 text-destructive' />
+                    </Button>
                   </div>
                 ))}
               </div>

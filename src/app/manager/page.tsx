@@ -46,14 +46,14 @@ export default async function ManagerDashboard() {
 
   return (
     <div className='container mx-auto px-4 py-8 space-y-6'>
-      <div className='flex items-center justify-between'>
+      <div className='flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0'>
         <h1 className='text-2xl font-semibold'>My Stores</h1>
-        <div className='flex gap-2'>
-          <Button asChild>
+        <div className='flex flex-wrap gap-2'>
+          <Button asChild className='w-full sm:w-auto'>
             <Link href='/manager/join'>Join Store</Link>
           </Button>
-          <Button asChild>
-            <Link href='/stores/new'>
+          <Button asChild className='w-full sm:w-auto'>
+            <Link href='/manager/stores/new'>
               <Plus className='w-4 h-4 mr-2' />
               Create Store
             </Link>
@@ -61,11 +61,11 @@ export default async function ManagerDashboard() {
         </div>
       </div>
 
-      <div className='grid gap-6 md:grid-cols-2 lg:grid-cols-3'>
+      <div className='grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3'>
         {storesWithManagerInfo.map((store) => (
           <Card key={store.id}>
             <CardHeader>
-              <div className='flex items-center justify-between'>
+              <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2'>
                 <CardTitle>{store.name}</CardTitle>
                 {store.join_code && (
                   <div className='flex items-center gap-2'>
@@ -83,23 +83,43 @@ export default async function ManagerDashboard() {
               <div className='space-y-2 text-sm'>
                 <p className='text-muted-foreground'>{store.address}</p>
                 <p className='text-muted-foreground'>{store.phone_number}</p>
-                <div className='pt-4 flex flex-wrap gap-2'>
-                  <Button asChild variant='outline' size='sm'>
+                <div className='pt-4 grid grid-cols-2 gap-2'>
+                  <Button
+                    asChild
+                    variant='outline'
+                    size='sm'
+                    className='w-full'
+                  >
                     <Link href={`/manager/store/${store.id}`}>
                       View Details
                     </Link>
                   </Button>
-                  <Button asChild variant='outline' size='sm'>
+                  <Button
+                    asChild
+                    variant='outline'
+                    size='sm'
+                    className='w-full'
+                  >
                     <Link href={`/manager/store/${store.id}/availability`}>
                       View Availabilities
                     </Link>
                   </Button>
-                  <Button asChild variant='outline' size='sm'>
+                  <Button
+                    asChild
+                    variant='outline'
+                    size='sm'
+                    className='w-full'
+                  >
                     <Link href={`/manager/store/${store.id}/my-availability`}>
                       My Availability
                     </Link>
                   </Button>
-                  <Button asChild variant='outline' size='sm'>
+                  <Button
+                    asChild
+                    variant='outline'
+                    size='sm'
+                    className='w-full'
+                  >
                     <Link href={`/manager/store/${store.id}/schedule`}>
                       <Calendar className='h-4 w-4 mr-2' />
                       Schedule

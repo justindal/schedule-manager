@@ -1,6 +1,6 @@
 'use client'
 
-import { createClient } from '@/app/utils/supabase/client'
+import { createClientBrowser } from '@/app/utils/supabase/client'
 import {
   Card,
   CardContent,
@@ -26,7 +26,7 @@ export default function NewStore() {
     const formData = new FormData(form)
 
     try {
-      const supabase = createClient()
+      const supabase = createClientBrowser()
       const user = (await supabase.auth.getUser()).data.user
 
       if (!user) {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams } from 'next/navigation'
-import { createClient } from '@/app/utils/supabase/client'
+import { createClientBrowser } from '@/app/utils/supabase/client'
 import { useState, useEffect, useMemo } from 'react'
 import {
   format,
@@ -27,6 +27,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -37,6 +39,21 @@ import {
 } from '@/components/ui/popover'
 import { Calendar as CalendarIcon } from 'lucide-react'
 import { PostgrestError } from '@supabase/supabase-js'
+import { Textarea } from '@/components/ui/textarea'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 
 interface Profile {
   id: string
@@ -87,7 +104,7 @@ interface AvailabilityData {
 
 function calculateTotalHours(shifts: Shift[], employeeId: string): number {
   return shifts
-    .filter(shift => shift.employee_id === employeeId)
+    .filter((shift) => shift.employee_id === employeeId)
     .reduce((total, shift) => {
       const start = new Date(shift.start_time)
       const end = new Date(shift.end_time)
@@ -110,7 +127,8 @@ export default function SchedulePage() {
   } | null>(null)
   const [schedule, setSchedule] = useState<Schedule | null>(null)
   const [availabilities, setAvailabilities] = useState<AvailabilityData[]>([])
-  const supabase = createClient()
+  const supabase = createClientBrowser()
+  const [showAvailabilities, setShowAvailabilities] = useState(false)
 
   const weekDates = useMemo(
     () =>
@@ -291,19 +309,76 @@ export default function SchedulePage() {
     }
   }
 
-  function AvailabilityPopover() {
-    return (
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button variant='outline' size='sm'>
-            <CalendarIcon className='h-4 w-4 mr-2' />
-            View Availabilities
+  if (loading) {
+    return <Skeleton className='w-full h-[600px]' />
+  }
+
+  return (
+    <div className='container mx-auto px-4 py-8 space-y-6'>
+      <h1 className='text-2xl font-semibold mb-6 text-center sm:text-left'>
+        Schedule Manager
+      </h1>
+
+      <div className='bg-card rounded-md p-4 border'>
+        <div className='flex items-center justify-center gap-3'>
+          <Button
+            onClick={() => setCurrentWeek((prev) => subWeeks(prev, 1))}
+            variant='outline'
+            size='icon'
+            className='h-8 w-8'
+          >
+            <ChevronLeft className='h-4 w-4' />
           </Button>
-        </PopoverTrigger>
-        <PopoverContent className='w-80'>
-          <div className='space-y-4'>
-            <h4 className='font-medium'>Staff Availabilities</h4>
-            <div className='space-y-2'>
+
+          <div className='font-medium text-center px-4 py-2 bg-muted rounded-md'>
+            <div className='hidden sm:block'>
+              {format(weekDates[0], 'MMMM d')} -{' '}
+              {format(weekDates[6], 'MMMM d, yyyy')}
+            </div>
+            <div className='sm:hidden'>
+              {format(weekDates[0], 'MMM d')} - {format(weekDates[6], 'MMM d')}
+            </div>
+          </div>
+
+          <Button
+            onClick={() => setCurrentWeek((prev) => addWeeks(prev, 1))}
+            variant='outline'
+            size='icon'
+            className='h-8 w-8'
+          >
+            <ChevronRight className='h-4 w-4' />
+          </Button>
+        </div>
+      </div>
+
+      <div className='flex justify-end'>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => setShowAvailabilities(!showAvailabilities)}
+              >
+                <CalendarIcon className='h-4 w-4 mr-2' />
+                {showAvailabilities ? 'Hide' : 'View'} Availabilities
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Show or hide staff availability for the current week
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+
+      {showAvailabilities && (
+        <Card className='mb-4 animate-in slide-in-from-top-4 duration-300'>
+          <CardHeader className='py-4'>
+            <CardTitle>Staff Availabilities</CardTitle>
+            <CardDescription>Availability for the current week</CardDescription>
+          </CardHeader>
+          <CardContent className='max-h-[300px] overflow-y-auto'>
+            <div className='space-y-4'>
               {employees.map((employee) => {
                 const employeeAvailabilities = availabilities.filter(
                   (a) => a.user_id === employee.id
@@ -313,131 +388,145 @@ export default function SchedulePage() {
                     <h5 className='text-sm font-medium'>
                       {employee.full_name}
                     </h5>
-                    <div className='pl-4 space-y-1'>
-                      {employeeAvailabilities.map((avail) => (
-                        <div key={avail.id} className='text-sm'>
-                          {format(new Date(avail.date), 'EEE MMM d')}:{' '}
-                          {avail.status === 'available' && avail.start_time ? (
-                            <span className='text-green-600'>
-                              {format(
-                                new Date(`2000-01-01T${avail.start_time}`),
-                                'h:mm a'
-                              )}{' '}
-                              - {/* spacing here */}
-                              {format(
-                                new Date(`2000-01-01T${avail.end_time}`),
-                                'h:mm a'
-                              )}
-                            </span>
-                          ) : (
-                            <span className='text-red-600'>Unavailable</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                    {employeeAvailabilities.length > 0 ? (
+                      <div className='pl-4 space-y-1'>
+                        {employeeAvailabilities.map((avail) => (
+                          <div key={avail.id} className='text-sm'>
+                            {format(new Date(avail.date), 'EEE MMM d')}:{' '}
+                            {avail.status === 'available' &&
+                            avail.start_time ? (
+                              <span className='text-green-600'>
+                                {format(
+                                  new Date(`2000-01-01T${avail.start_time}`),
+                                  'h:mm a'
+                                )}{' '}
+                                -{' '}
+                                {format(
+                                  new Date(`2000-01-01T${avail.end_time}`),
+                                  'h:mm a'
+                                )}
+                              </span>
+                            ) : (
+                              <span className='text-red-600'>Unavailable</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className='pl-4 text-sm text-muted-foreground'>
+                        No availability set
+                      </div>
+                    )}
                   </div>
                 )
               })}
             </div>
-          </div>
-        </PopoverContent>
-      </Popover>
-    )
-  }
+          </CardContent>
+        </Card>
+      )}
 
-  if (loading) {
-    return <Skeleton className='w-full h-[600px]' />
-  }
-
-  return (
-    <div className='container mx-auto px-4 py-8 space-y-6'>
-      <div className='flex items-center justify-between'>
-        <Button onClick={() => setCurrentWeek((prev) => subWeeks(prev, 1))}>
-          Previous Week
-        </Button>
-        <span className='font-medium'>
-          {format(weekDates[0], 'MMM d')} -{' '}
-          {format(weekDates[6], 'MMM d, yyyy')}
-        </span>
-        <Button onClick={() => setCurrentWeek((prev) => addWeeks(prev, 1))}>
-          Next Week
-        </Button>
-      </div>
-      <div className='flex justify-end'>
-        <AvailabilityPopover />
-      </div>
-      <div className='rounded-md border'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className='w-[200px]'>Employee</TableHead>
-              {weekDates.map((date) => (
-                <TableHead
-                  key={date.toString()}
-                  className='text-center min-w-[150px]'
-                >
-                  {format(date, 'EEE ')}
-                  {format(date, 'MMM d')}
-                </TableHead>
-              ))}
-              <TableHead className='text-center w-[100px]'>Hours</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {employees.map((employee) => (
-              <TableRow key={employee.id}>
-                <TableCell className='font-medium'>
-                  {employee.full_name}
-                </TableCell>
-                {weekDates.map((date) => {
-                  const shift = shifts.find(
-                    (s) =>
-                      s.employee_id === employee.id &&
-                      format(new Date(s.start_time), 'yyyy-MM-dd') ===
-                        format(date, 'yyyy-MM-dd')
-                  )
-                  return (
-                    <TableCell
-                      key={date.toString()}
-                      className='text-center p-0'
-                    >
-                      <Button
-                        variant='ghost'
-                        className='w-full h-full p-2'
-                        onClick={() =>
-                          setEditingShift({
-                            employeeId: employee.id,
-                            date,
-                            shift,
-                          })
-                        }
+      <Card>
+        <CardHeader className='py-4'>
+          <CardTitle>Weekly Schedule</CardTitle>
+          <CardDescription>Manage employee shifts for the week</CardDescription>
+        </CardHeader>
+        <CardContent className='p-0'>
+          <div className='overflow-x-auto'>
+            <div className='min-w-[800px]'>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className='w-[200px] sticky left-0 bg-background z-10'>
+                      Employee
+                    </TableHead>
+                    {weekDates.map((date) => (
+                      <TableHead
+                        key={date.toString()}
+                        className='text-center min-w-[150px]'
                       >
-                        {shift ? (
-                          <div className='text-sm'>
-                            {format(new Date(shift.start_time), 'h:mm a')} -{' '}
-                            {format(new Date(shift.end_time), 'h:mm a')}
-                          </div>
-                        ) : (
-                          <div className='text-gray-400'>-</div>
-                        )}
-                      </Button>
-                    </TableCell>
-                  )
-                })}
-                <TableCell className='text-center font-medium'>
-                  {calculateTotalHours(shifts, employee.id).toFixed(2)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+                        <div className='hidden sm:block'>
+                          {format(date, 'EEE ')}
+                          {format(date, 'MMM d')}
+                        </div>
+                        <div className='sm:hidden'>
+                          {format(date, 'E ')}
+                          {format(date, 'd')}
+                        </div>
+                      </TableHead>
+                    ))}
+                    <TableHead className='text-center w-[100px]'>
+                      Hours
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {employees.map((employee) => (
+                    <TableRow key={employee.id}>
+                      <TableCell className='font-medium sticky left-0 bg-background z-10'>
+                        {employee.full_name}
+                      </TableCell>
+                      {weekDates.map((date) => {
+                        const shift = shifts.find(
+                          (s) =>
+                            s.employee_id === employee.id &&
+                            format(new Date(s.start_time), 'yyyy-MM-dd') ===
+                              format(date, 'yyyy-MM-dd')
+                        )
+                        return (
+                          <TableCell
+                            key={date.toString()}
+                            className='text-center p-0'
+                          >
+                            <Button
+                              variant='ghost'
+                              className='w-full h-full p-2'
+                              onClick={() =>
+                                setEditingShift({
+                                  employeeId: employee.id,
+                                  date,
+                                  shift,
+                                })
+                              }
+                            >
+                              {shift ? (
+                                <div className='text-sm'>
+                                  {format(new Date(shift.start_time), 'h:mm a')}{' '}
+                                  - {format(new Date(shift.end_time), 'h:mm a')}
+                                </div>
+                              ) : (
+                                <div className='text-gray-400'>-</div>
+                              )}
+                            </Button>
+                          </TableCell>
+                        )
+                      })}
+                      <TableCell className='text-center font-medium'>
+                        {calculateTotalHours(shifts, employee.id).toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Dialog open={!!editingShift} onOpenChange={() => setEditingShift(null)}>
-        <DialogContent>
+        <DialogContent className='sm:max-w-[425px] max-w-[95vw]'>
           <DialogHeader>
             <DialogTitle>
               {editingShift?.shift ? 'Edit Shift' : 'Add Shift'}
             </DialogTitle>
+            {editingShift && (
+              <DialogDescription>
+                {format(editingShift.date, 'EEEE, MMMM d, yyyy')} -{' '}
+                {
+                  employees.find((e) => e.id === editingShift.employeeId)
+                    ?.full_name
+                }
+              </DialogDescription>
+            )}
           </DialogHeader>
           <form
             onSubmit={(e) => {
@@ -446,59 +535,69 @@ export default function SchedulePage() {
             }}
             className='space-y-4'
           >
-            <div className='space-y-2'>
-              <Label htmlFor='startTime'>Start Time</Label>
-              <Input
-                id='startTime'
-                name='startTime'
-                type='time'
-                defaultValue={
-                  editingShift?.shift?.start_time
-                    ? format(new Date(editingShift.shift.start_time), 'HH:mm')
-                    : '09:00'
-                }
-              />
-            </div>
-            <div className='space-y-2'>
-              <Label htmlFor='endTime'>End Time</Label>
-              <Input
-                id='endTime'
-                name='endTime'
-                type='time'
-                defaultValue={
-                  editingShift?.shift?.end_time
-                    ? format(new Date(editingShift.shift.end_time), 'HH:mm')
-                    : '17:00'
-                }
-              />
+            <div className='grid grid-cols-2 gap-4'>
+              <div className='space-y-2'>
+                <Label htmlFor='startTime'>Start Time</Label>
+                <Input
+                  id='startTime'
+                  name='startTime'
+                  type='time'
+                  className='h-10'
+                  defaultValue={
+                    editingShift?.shift?.start_time
+                      ? format(new Date(editingShift.shift.start_time), 'HH:mm')
+                      : '09:00'
+                  }
+                />
+              </div>
+              <div className='space-y-2'>
+                <Label htmlFor='endTime'>End Time</Label>
+                <Input
+                  id='endTime'
+                  name='endTime'
+                  type='time'
+                  className='h-10'
+                  defaultValue={
+                    editingShift?.shift?.end_time
+                      ? format(new Date(editingShift.shift.end_time), 'HH:mm')
+                      : '17:00'
+                  }
+                />
+              </div>
             </div>
             <div className='space-y-2'>
               <Label htmlFor='notes'>Notes</Label>
-              <Input
+              <Textarea
                 id='notes'
                 name='notes'
-                defaultValue={editingShift?.shift?.notes}
+                rows={3}
+                placeholder='Optional notes about this shift'
+                className='resize-none'
+                defaultValue={editingShift?.shift?.notes || ''}
               />
             </div>
-            <div className='flex justify-end gap-2'>
+            <DialogFooter className='flex-col sm:flex-row sm:justify-end gap-2 sm:gap-0'>
               {editingShift?.shift && (
                 <Button
                   type='button'
                   variant='destructive'
+                  className='w-full sm:w-auto order-1 sm:order-none'
                   onClick={handleShiftDelete}
                 >
-                  Clear Shift
+                  Delete Shift
                 </Button>
               )}
-              <Button
-                type='button'
-                variant='outline'
-                onClick={() => setEditingShift(null)}
-              >
-                Cancel
-              </Button>
-              <Button type='submit'>Save</Button>
-            </div>
+              <div className='flex justify-end gap-2 w-full sm:w-auto'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  onClick={() => setEditingShift(null)}
+                >
+                  Cancel
+                </Button>
+                <Button type='submit'>Save</Button>
+              </div>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

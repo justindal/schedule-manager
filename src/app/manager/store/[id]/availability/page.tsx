@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams } from 'next/navigation'
-import { createClient } from '@/app/utils/supabase/client'
+import { createClientBrowser } from '@/app/utils/supabase/client'
 import { useState, useEffect, useMemo } from 'react'
 import {
   format,
@@ -87,7 +87,7 @@ function AvailabilityTable({ storeId }: Props) {
   const [currentWeek, setCurrentWeek] = useState(new Date())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const supabase = createClient()
+  const supabase = createClientBrowser()
 
   const weekDates = useMemo(
     () =>
@@ -159,7 +159,10 @@ function AvailabilityTable({ storeId }: Props) {
           )
         `
         )
-        .eq('store_id', storeId)) as { data: StoreManager[] | null; error: PostgrestError | null }
+        .eq('store_id', storeId)) as {
+        data: StoreManager[] | null
+        error: PostgrestError | null
+      }
 
       if (storeError) throw storeError
       if (managerError) throw managerError
