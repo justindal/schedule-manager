@@ -1,8 +1,15 @@
 import { createClient } from '@/app/utils/supabase/server'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Calendar, Clock } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import Link from 'next/link'
+import { StoreCard } from './components/StoreCard'
 
 interface Store {
   id: string
@@ -32,49 +39,34 @@ export default async function EmployeeDashboard() {
     .eq('employee_id', user?.id)) as unknown as { data: StoreEmployee[] }
 
   return (
-    <div className='container mx-auto py-8 space-y-6'>
-      <div className='flex justify-between items-center mb-6'>
-        <h1 className='text-3xl font-bold'>My Dashboard</h1>
-        <Button asChild>
-          <Link href='/employee/join'>Join Store</Link>
+    <div className='container mx-auto px-3 py-4 sm:py-6 space-y-4 sm:space-y-6 max-w-4xl'>
+      <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0'>
+        <h1 className='text-xl sm:text-3xl font-bold'>My Dashboard</h1>
+        <Button asChild className='w-full sm:w-auto text-sm' size='sm'>
+          <Link href='/employee/join'>
+            <Plus className='h-4 w-4 mr-2' />
+            Join Store
+          </Link>
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>My Stores</CardTitle>
+      <Card className='shadow-sm'>
+        <CardHeader className='px-4 py-3 sm:py-4'>
+          <CardTitle className='text-lg sm:text-xl'>My Stores</CardTitle>
+          <CardDescription>Stores you're currently working at</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className='space-y-4'>
-            {stores?.map((record: StoreEmployee) => (
-              <div
-                key={record.stores.id}
-                className='flex justify-between items-center p-4 border rounded-lg'
-              >
-                <div className='space-y-1'>
-                  <div className='font-medium'>{record.stores.name}</div>
-                  <div className='text-sm text-muted-foreground'>
-                    {record.stores.address}
-                  </div>
-                </div>
-                <div className='flex gap-2'>
-                  <Button variant='outline' size='sm' asChild>
-                    <Link href={`/employee/store/${record.stores.id}/schedule`}>
-                      <Calendar className='h-4 w-4 mr-2' />
-                      Schedule
-                    </Link>
-                  </Button>
-                  <Button variant='outline' size='sm' asChild>
-                    <Link
-                      href={`/employee/store/${record.stores.id}/availability`}
-                    >
-                      <Clock className='h-4 w-4 mr-2' />
-                      Availability
-                    </Link>
-                  </Button>
-                </div>
+        <CardContent className='px-4 py-2 sm:py-4'>
+          <div className='space-y-3 sm:space-y-4'>
+            {stores?.length === 0 ? (
+              <div className='text-center py-6 text-muted-foreground text-sm'>
+                You haven't joined any stores yet. Click the "Join Store" button
+                above to get started.
               </div>
-            ))}
+            ) : (
+              stores?.map((record: StoreEmployee) => (
+                <StoreCard key={record.stores.id} store={record.stores} />
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

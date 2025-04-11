@@ -1,6 +1,6 @@
 'use client'
 
-import { createClient } from '@/app/utils/supabase/client'
+import { createClientBrowser } from '@/app/utils/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,7 +16,7 @@ export default function JoinStore() {
     e.preventDefault()
     setError('')
 
-    const supabase = createClient()
+    const supabase = createClientBrowser()
     const user = (await supabase.auth.getUser()).data.user
 
     const { data: store, error: storeError } = await supabase

@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams } from 'next/navigation'
-import { createClient } from '@/app/utils/supabase/client'
+import { createClientBrowser } from '@/app/utils/supabase/client'
 import { useState, useEffect, useMemo } from 'react'
 import {
   format,
@@ -28,6 +28,21 @@ import {
 } from '@/components/ui/popover'
 import { Calendar as CalendarIcon } from 'lucide-react'
 import { PostgrestError } from '@supabase/supabase-js'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '@/components/ui/card'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from '@/components/ui/tooltip'
+import { Info } from 'lucide-react'
 
 interface Profile {
   id: string
@@ -81,9 +96,12 @@ interface ManagerJoinResult {
   }
 }
 
-function calculateTotalHours(shifts: Shift[], employeeId: string | number): number {
+function calculateTotalHours(
+  shifts: Shift[],
+  employeeId: string | number
+): number {
   return shifts
-    .filter(shift => shift.employee_id === employeeId)
+    .filter((shift) => shift.employee_id === employeeId)
     .reduce((total, shift) => {
       const start = new Date(shift.start_time)
       const end = new Date(shift.end_time)
@@ -100,7 +118,7 @@ export default function EmployeeSchedulePage() {
   const [shifts, setShifts] = useState<Shift[]>([])
   const [loading, setLoading] = useState(true)
   const [availabilities, setAvailabilities] = useState<AvailabilityData[]>([])
-  const supabase = createClient()
+  const supabase = createClientBrowser()
 
   const weekDates = useMemo(
     () =>
@@ -208,70 +226,131 @@ export default function EmployeeSchedulePage() {
 
   return (
     <div className='container mx-auto px-4 py-8 space-y-6'>
-      <div className='flex items-center justify-between'>
-        <Button onClick={() => setCurrentWeek((prev) => subWeeks(prev, 1))}>
-          Previous Week
-        </Button>
-        <span className='font-medium'>
-          {format(weekDates[0], 'MMM d')} -{' '}
-          {format(weekDates[6], 'MMM d, yyyy')}
-        </span>
-        <Button onClick={() => setCurrentWeek((prev) => addWeeks(prev, 1))}>
-          Next Week
-        </Button>
-      </div>
+      <TooltipProvider>
+        <h1 className='text-2xl font-semibold mb-6 text-center sm:text-left'>
+          My Schedule
+        </h1>
 
-      <div className='rounded-md border'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className='w-[200px]'>Employee</TableHead>
-              {weekDates.map((date) => (
-                <TableHead
-                  key={date.toString()}
-                  className='text-center min-w-[150px]'
-                >
-                  {format(date, 'EEE ')}
-                  {format(date, 'MMM d')}
-                </TableHead>
-              ))}
-              <TableHead className='text-center w-[100px]'>Hours</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {employees.map((employee) => (
-              <TableRow key={employee.id}>
-                <TableCell className='font-medium'>
-                  {employee.full_name}
-                </TableCell>
-                {weekDates.map((date) => {
-                  const shift = shifts.find(
-                    (s) =>
-                      s.employee_id === employee.id &&
-                      format(new Date(s.start_time), 'yyyy-MM-dd') ===
-                        format(date, 'yyyy-MM-dd')
-                  )
-                  return (
-                    <TableCell key={date.toString()} className='text-center'>
-                      {shift ? (
-                        <div className='text-sm'>
-                          {format(new Date(shift.start_time), 'h:mm a')} -{' '}
-                          {format(new Date(shift.end_time), 'h:mm a')}
+        <div className='bg-card rounded-md p-4 border'>
+          <div className='flex items-center justify-center gap-3'>
+            <Button
+              onClick={() => setCurrentWeek((prev) => subWeeks(prev, 1))}
+              variant='outline'
+              size='icon'
+              className='h-8 w-8'
+            >
+              <ChevronLeft className='h-4 w-4' />
+            </Button>
+
+            <div className='font-medium text-center px-4 py-2 bg-muted rounded-md'>
+              <div className='hidden sm:block'>
+                {format(weekDates[0], 'MMMM d')} -{' '}
+                {format(weekDates[6], 'MMMM d, yyyy')}
+              </div>
+              <div className='sm:hidden'>
+                {format(weekDates[0], 'MMM d')} -{' '}
+                {format(weekDates[6], 'MMM d')}
+              </div>
+            </div>
+
+            <Button
+              onClick={() => setCurrentWeek((prev) => addWeeks(prev, 1))}
+              variant='outline'
+              size='icon'
+              className='h-8 w-8'
+            >
+              <ChevronRight className='h-4 w-4' />
+            </Button>
+          </div>
+        </div>
+
+        <Card>
+          <CardHeader className='py-4'>
+            <CardTitle>Weekly Schedule</CardTitle>
+            <CardDescription>
+              View your assigned shifts for the week
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className='overflow-x-auto'>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className='w-[200px] sticky left-0 bg-background z-10'>
+                      Employee
+                    </TableHead>
+                    {weekDates.map((date) => (
+                      <TableHead
+                        key={date.toString()}
+                        className='text-center min-w-[150px]'
+                      >
+                        <div className='hidden sm:block'>
+                          {format(date, 'EEE ')}
+                          {format(date, 'MMM d')}
                         </div>
-                      ) : (
-                        <div className='text-gray-400'>-</div>
-                      )}
-                    </TableCell>
-                  )
-                })}
-                <TableCell className='text-center font-medium'>
-                  {calculateTotalHours(shifts, employee.id).toFixed(2)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+                        <div className='sm:hidden'>
+                          {format(date, 'E ')}
+                          {format(date, 'd')}
+                        </div>
+                      </TableHead>
+                    ))}
+                    <TableHead className='text-center w-[100px]'>
+                      Hours
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {employees.map((employee) => (
+                    <TableRow key={employee.id}>
+                      <TableCell className='font-medium sticky left-0 bg-background z-10'>
+                        {employee.full_name}
+                      </TableCell>
+                      {weekDates.map((date) => {
+                        const shift = shifts.find(
+                          (s) =>
+                            s.employee_id === employee.id &&
+                            format(new Date(s.start_time), 'yyyy-MM-dd') ===
+                              format(date, 'yyyy-MM-dd')
+                        )
+                        return (
+                          <TableCell
+                            key={date.toString()}
+                            className='text-center p-0'
+                          >
+                            <div className='w-full h-full p-2'>
+                              {shift ? (
+                                <div className='text-sm'>
+                                  {format(new Date(shift.start_time), 'h:mm a')}{' '}
+                                  - {format(new Date(shift.end_time), 'h:mm a')}
+                                  {shift.notes && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Info className='h-3 w-3 inline-block ml-1 text-muted-foreground' />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        {shift.notes}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className='text-gray-400'>-</div>
+                              )}
+                            </div>
+                          </TableCell>
+                        )
+                      })}
+                      <TableCell className='text-center font-medium'>
+                        {calculateTotalHours(shifts, employee.id).toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </TooltipProvider>
     </div>
   )
 }
