@@ -1,26 +1,41 @@
 'use client'
 
-import { createClient } from '@/app/utils/supabase/client'
+import { createClientBrowser } from '@/app/utils/supabase/client'
 import React, { useState, useEffect } from 'react'
 import { Calendar } from '@/components/ui/calendar'
 import { Button } from '@/components/ui/button'
+import { useParams } from 'next/navigation'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { format, parseISO, addDays } from 'date-fns'
-import { PlusCircle, Trash } from 'lucide-react'
+import { format, parseISO, addDays, subDays } from 'date-fns'
+import { PlusCircle, Trash, ChevronLeft, ChevronRight } from 'lucide-react'
 import { User } from '@supabase/supabase-js'
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '@/components/ui/card'
 
 enum AvailabilityStatus {
-  AVAILABLE = 'available',
-  UNAVAILABLE = 'unavailable',
-  PENDING = 'pending',
+  Available = 'available',
+  Unavailable = 'unavailable',
 }
 
 interface Availability {
@@ -33,26 +48,24 @@ interface Availability {
   status: string
 }
 
-interface PageParams {
-  id: string
-}
-
-export default function StoreAvailability({
-  params,
-}: {
-  params: Promise<PageParams>
-}) {
-  const unwrappedParams = React.use(params)
-  const [availabilities, setAvailabilities] = useState<Availability[]>([])
-  const [fetchError, setFetchError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [date, setDate] = useState<Date>()
-  const [startTime, setStartTime] = useState<string>('03:00')
-  const [endTime, setEndTime] = useState<string>('03:00')
-  const [loading, setLoading] = useState(false)
+export default function AvailabilityPage() {
+  const params = useParams()
+  const storeId = params.id as string
   const [open, setOpen] = useState(false)
   const [user, setUser] = useState<User | null>(null)
-  const supabase = createClient()
+  const supabase = createClientBrowser()
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [availabilities, setAvailabilities] = useState<Availability[]>([])
+  const [status, setStatus] = useState<AvailabilityStatus>(
+    AvailabilityStatus.Available
+  )
+  const [startTime, setStartTime] = useState('09:00')
+  const [endTime, setEndTime] = useState('17:00')
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const prevDate = () => setSelectedDate((prev) => subDays(prev, 1))
+  const nextDate = () => setSelectedDate((prev) => addDays(prev, 1))
 
   const isValidTimeRange = (start: string, end: string) => {
     if (!start || !end) return false
@@ -71,75 +84,72 @@ export default function StoreAvailability({
   }
 
   useEffect(() => {
-    async function init() {
+    const init = async () => {
       try {
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser()
-        if (userError) throw userError
+        const { data } = await supabase.auth.getUser()
+        setUser(data.user)
 
-        if (!user) {
-          setFetchError('No authenticated user found')
+        if (!data.user) {
+          setError('No authenticated user found')
           return
         }
 
-        setUser(user)
+        const { data: availabilityData, error: availabilityError } =
+          await supabase
+            .from('availability')
+            .select('*')
+            .eq('store_id', storeId)
+            .eq('user_id', data.user.id)
+            .order('date', { ascending: true })
 
-        const { data, error: availError } = await supabase
-          .from('availability')
-          .select('*')
-          .eq('store_id', unwrappedParams.id)
-          .eq('user_id', user.id)
-          .order('date', { ascending: true })
+        if (availabilityError) {
+          setError(availabilityError.message)
+          return
+        }
 
-        if (availError) throw availError
-
-        console.log('Fetched availabilities:', data)
-        setAvailabilities(data || [])
+        setAvailabilities(availabilityData || [])
       } catch (error) {
-        console.error('Error fetching data:', error)
-        setFetchError(
-          error instanceof Error ? error.message : 'Failed to fetch data'
+        setError(
+          error instanceof Error ? error.message : 'Failed to fetch user data'
         )
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
     init()
-  }, [unwrappedParams.id])
+  }, [storeId])
 
-  if (isLoading) {
+  if (loading) {
     return <div>Loading availabilities...</div>
   }
 
-  if (fetchError) {
-    return <div className='text-red-500'>Error: {fetchError}</div>
+  if (error) {
+    return <div className='text-red-500'>Error: {error}</div>
   }
 
   async function fetchAvailability() {
     try {
       if (!user) {
-        setFetchError('No authenticated user found')
+        setError('No authenticated user found')
         return
       }
 
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('availability')
         .select('*')
-        .eq('store_id', unwrappedParams.id)
+        .eq('store_id', storeId)
         .eq('user_id', user.id)
         .order('date', { ascending: true })
 
-      if (error) throw error
+      if (fetchError) {
+        setError(fetchError.message)
+        return
+      }
 
       setAvailabilities(data || [])
     } catch (error) {
-      console.error('Error fetching availabilities:', error)
-      setFetchError(
-        error instanceof Error ? error.message : 'Failed to fetch data'
-      )
+      setError(error instanceof Error ? error.message : 'Failed to fetch data')
     }
   }
 
@@ -147,171 +157,210 @@ export default function StoreAvailability({
     e.preventDefault()
 
     if (!user) {
-      alert('You must be logged in to set availability')
+      setError('You must be logged in to set availability')
       return
     }
 
-    if (!date) {
-      alert('Please select a date')
-      return
-    }
-
-    if (isDateAlreadySet(date)) {
-      alert(
+    if (isDateAlreadySet(selectedDate)) {
+      setError(
         'Availability already set for this date. Please delete existing availability first.'
       )
       return
     }
 
     if (startTime && endTime && !isValidTimeRange(startTime, endTime)) {
-      alert('End time must be after start time')
+      setError('End time must be after start time')
       return
     }
 
     try {
       setLoading(true)
-      const { error } = await supabase.from('availability').insert({
-        store_id: unwrappedParams.id,
+      const { error: saveError } = await supabase.from('availability').insert({
+        store_id: storeId,
         user_id: user.id,
-        date: format(date, 'yyyy-MM-dd'),
+        date: format(selectedDate, 'yyyy-MM-dd'),
         start_time: startTime || null,
         end_time: endTime || null,
         status:
           startTime && endTime
-            ? AvailabilityStatus.AVAILABLE
-            : AvailabilityStatus.UNAVAILABLE,
+            ? AvailabilityStatus.Available
+            : AvailabilityStatus.Unavailable,
       })
 
-      if (error) {
-        throw error
+      if (saveError) {
+        setError(saveError.message)
+        return
       }
 
       await fetchAvailability()
-      setDate(undefined)
-      setStartTime('')
-      setEndTime('')
+      setSelectedDate(new Date())
+      setStartTime('09:00')
+      setEndTime('17:00')
       setOpen(false)
     } catch (error) {
-      console.error('Error saving availability:', error)
-      alert('Failed to save availability')
+      setError(
+        error instanceof Error ? error.message : 'Failed to save availability'
+      )
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className='mt-8 px-4 sm:px-6 lg:px-8'>
-      <div className='flex items-center justify-between mb-4'>
-        <h3 className='text-lg font-semibold'>Availability</h3>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button variant='outline' size='sm'>
-              <PlusCircle className='h-4 w-4 mr-2' />
-              Set Availability
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Set Your Availability</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className='space-y-4'>
-              <div className='space-y-2'>
-                <Label>Select Date</Label>
-                <div className='flex justify-center'>
-                  <Calendar
-                    mode='single'
-                    selected={date}
-                    onSelect={setDate}
-                    className='rounded-md border'
+    <div className='container mx-auto px-4 py-8 space-y-6'>
+      <h1 className='text-2xl font-semibold mb-6 text-center sm:text-left'>
+        My Availability
+      </h1>
+
+      <div className='bg-card rounded-md p-4 border'>
+        <div className='flex items-center justify-center gap-3'>
+          <Button
+            onClick={prevDate}
+            variant='outline'
+            size='icon'
+            className='h-8 w-8'
+          >
+            <ChevronLeft className='h-4 w-4' />
+          </Button>
+
+          <div className='font-medium text-center px-4 py-2 bg-muted rounded-md'>
+            <div className='hidden sm:block'>
+              {format(selectedDate, 'MMMM d, yyyy')}
+            </div>
+            <div className='sm:hidden'>
+              {format(selectedDate, 'MMM d, yyyy')}
+            </div>
+          </div>
+
+          <Button
+            onClick={nextDate}
+            variant='outline'
+            size='icon'
+            className='h-8 w-8'
+          >
+            <ChevronRight className='h-4 w-4' />
+          </Button>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader className='py-4'>
+          <CardTitle>Set Availability</CardTitle>
+          <CardDescription>
+            Set your availability for the selected date
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button variant='outline' size='sm'>
+                <PlusCircle className='h-4 w-4 mr-2' />
+                Set Availability
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Set Your Availability</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className='space-y-4'>
+                <div className='space-y-2'>
+                  <Label>Select Date</Label>
+                  <div className='flex justify-center'>
+                    <Calendar
+                      mode='single'
+                      selected={selectedDate}
+                      onSelect={(date) => date && setSelectedDate(date)}
+                      className='rounded-md border'
+                    />
+                  </div>
+                </div>
+
+                <div className='space-y-2'>
+                  <Label>Start Time</Label>
+                  <Input
+                    type='time'
+                    value={startTime}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      if (value.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
+                        setStartTime(value)
+                      }
+                    }}
+                    step='900'
                   />
                 </div>
-              </div>
+                <div className='space-y-2'>
+                  <Label>End Time</Label>
+                  <Input
+                    type='time'
+                    value={endTime}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      if (value.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
+                        setEndTime(value)
+                      }
+                    }}
+                    step='900'
+                  />
+                </div>
 
-              <div className='space-y-2'>
-                <Label>Start Time</Label>
-                <Input
-                  type='time'
-                  value={startTime}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    if (value.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
-                      setStartTime(value)
-                    }
-                  }}
-                  step='900'
-                />
-              </div>
-              <div className='space-y-2'>
-                <Label>End Time</Label>
-                <Input
-                  type='time'
-                  value={endTime}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    if (value.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
-                      setEndTime(value)
-                    }
-                  }}
-                  step='900'
-                />
-              </div>
+                <div className='flex gap-2'>
+                  <Button
+                    type='submit'
+                    className='flex-1'
+                    disabled={loading || !selectedDate}
+                  >
+                    {loading ? 'Saving...' : 'Set Available'}
+                  </Button>
+                  <Button
+                    type='button'
+                    variant='destructive'
+                    className='flex-1'
+                    disabled={loading || !selectedDate}
+                    onClick={async () => {
+                      if (!selectedDate || !user) return
 
-              <div className='flex gap-2'>
-                <Button
-                  type='submit'
-                  className='flex-1'
-                  disabled={loading || !date}
-                >
-                  {loading ? 'Saving...' : 'Set Available'}
-                </Button>
-                <Button
-                  type='button'
-                  variant='destructive'
-                  className='flex-1'
-                  disabled={loading || !date}
-                  onClick={async () => {
-                    if (!date || !user) return
+                      if (isDateAlreadySet(selectedDate)) {
+                        alert(
+                          'Availability already set for this date. Please delete existing availability first.'
+                        )
+                        return
+                      }
 
-                    if (isDateAlreadySet(date)) {
-                      alert(
-                        'Availability already set for this date. Please delete existing availability first.'
-                      )
-                      return
-                    }
+                      try {
+                        setLoading(true)
+                        const { error } = await supabase
+                          .from('availability')
+                          .insert({
+                            store_id: storeId,
+                            user_id: user.id,
+                            date: format(selectedDate, 'yyyy-MM-dd'),
+                            status: AvailabilityStatus.Unavailable,
+                          })
 
-                    try {
-                      setLoading(true)
-                      const { error } = await supabase
-                        .from('availability')
-                        .insert({
-                          store_id: unwrappedParams.id,
-                          user_id: user.id,
-                          date: format(date, 'yyyy-MM-dd'),
-                          status: AvailabilityStatus.UNAVAILABLE,
-                        })
+                        if (error) throw error
 
-                      if (error) throw error
-
-                      await fetchAvailability()
-                      setDate(undefined)
-                      setStartTime('')
-                      setEndTime('')
-                      setOpen(false)
-                    } catch (error) {
-                      console.error('Error saving availability:', error)
-                      alert('Failed to save availability')
-                    } finally {
-                      setLoading(false)
-                    }
-                  }}
-                >
-                  Set Unavailable
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+                        await fetchAvailability()
+                        setSelectedDate(new Date())
+                        setStartTime('09:00')
+                        setEndTime('17:00')
+                        setOpen(false)
+                      } catch (error) {
+                        console.error('Error saving availability:', error)
+                        alert('Failed to save availability')
+                      } finally {
+                        setLoading(false)
+                      }
+                    }}
+                  >
+                    Set Unavailable
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </CardContent>
+      </Card>
 
       <div className='space-y-4'>
         {availabilities.length === 0 ? (
@@ -326,7 +375,7 @@ export default function StoreAvailability({
             <div
               key={availability.id}
               className={`p-4 rounded-lg border flex items-center justify-between ${
-                availability.status === AvailabilityStatus.UNAVAILABLE
+                availability.status === AvailabilityStatus.Unavailable
                   ? 'bg-gray-50'
                   : ''
               }`}
