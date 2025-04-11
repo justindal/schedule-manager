@@ -1,6 +1,6 @@
 'use client'
 
-import { createClient } from '@/app/utils/supabase/client'
+import { createClientBrowser } from '@/app/utils/supabase/client'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
 
@@ -14,7 +14,7 @@ export function ContinueButton({
   const router = useRouter()
 
   const handleClick = async () => {
-    const supabase = createClient()
+    const supabase = createClientBrowser()
     const {
       data: { session },
     } = await supabase.auth.getSession()

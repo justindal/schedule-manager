@@ -26,25 +26,25 @@ export default function Home() {
         </div>
       </nav>
 
-      <main className='max-w-7xl mx-auto px-4 py-12'>
+      <main className='max-w-7xl mx-auto px-4 py-8 sm:py-12'>
         <div className='absolute inset-0 -z-10 overflow-hidden'>
           <div className='absolute -top-40 -right-32 h-[500px] w-[500px] rounded-full bg-primary/5' />
           <div className='absolute -bottom-40 -left-32 h-[500px] w-[500px] rounded-full bg-primary/5' />
         </div>
 
         <div className='flex justify-center mb-12'>
-          <Card className='w-[500px]'>
+          <Card className='w-full max-w-[500px]'>
             <CardHeader className='text-center space-y-2'>
-              <CardTitle className='text-3xl font-bold'>
+              <CardTitle className='text-2xl sm:text-3xl font-bold'>
                 Schedule Manager
               </CardTitle>
-              <CardDescription className='text-xl'>
+              <CardDescription className='text-lg sm:text-xl'>
                 Streamline your workforce scheduling
               </CardDescription>
             </CardHeader>
 
             <CardContent className='space-y-6'>
-              <div className='grid grid-cols-2 gap-4'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                 <div className='flex items-center gap-2'>
                   <CalendarDays className='h-5 w-5 text-primary' />
                   <span>Easy Scheduling</span>
@@ -83,7 +83,7 @@ export default function Home() {
           </Card>
         </div>
 
-        <div className='grid md:grid-cols-3 gap-8'>
+        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8'>
           <div className='text-center p-6 rounded-lg bg-card border'>
             <CalendarDays className='h-12 w-12 text-primary mx-auto mb-4' />
             <h3 className='text-xl font-semibold mb-2'>Easy Scheduling</h3>
