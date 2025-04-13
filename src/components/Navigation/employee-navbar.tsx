@@ -97,7 +97,18 @@ export function EmployeeNavbar() {
         JSON.stringify(storeEmployees, null, 2)
       )
 
-      setEmployeeStores(storeEmployees as any)
+      const typedStoreEmployees: StoreEmployee[] =
+        storeEmployees?.map((item: unknown) => {
+          const typedItem = item as { stores: { id: string; name: string } }
+          return {
+            stores: {
+              id: typedItem.stores.id,
+              name: typedItem.stores.name,
+            },
+          }
+        }) || []
+
+      setEmployeeStores(typedStoreEmployees)
       setLoading(false)
     }
 

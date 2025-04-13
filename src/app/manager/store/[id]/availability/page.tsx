@@ -54,6 +54,16 @@ interface StoreManager {
   profiles: Profile
 }
 
+interface MinimalProfile {
+  id: string
+  full_name: string
+}
+
+interface EmployeeJoinResult {
+  employee_id: string
+  profiles: MinimalProfile
+}
+
 interface Props {
   storeId: string
 }
@@ -153,96 +163,144 @@ function AvailabilityTable({ storeId }: Props) {
   }, [availability])
 
   useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const { data: employeeData, error: employeeError } = await supabase
+          .from('store_employees')
+          .select(
+            `
+            employee_id,
+            profiles:employee_id (
+              id,
+              full_name
+            )
+          `
+          )
+          .eq('store_id', storeId)
+
+        if (employeeError) {
+          console.error('Error fetching employees:', employeeError)
+          return
+        }
+
+        // Create minimal profiles with just id and full_name
+        const minimalProfiles = employeeData.map((item: unknown) => {
+          const typedItem = item as {
+            employee_id: string
+            profiles: {
+              id: string
+              full_name: string
+            }
+          }
+
+          return {
+            id: typedItem.employee_id,
+            full_name: typedItem.profiles?.full_name || 'Unknown',
+            role: '', // Adding required fields with default values
+            email: '',
+          }
+        }) as Profile[]
+
+        setEmployees(minimalProfiles)
+      } catch (error) {
+        console.error('Error loading employees:', error)
+      }
+    }
+
+    fetchEmployees()
+  }, [storeId, supabase])
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!storeId) {
+        setError('Store ID is required')
+        setLoading(false)
+        return
+      }
+
+      setLoading(true)
+      setError(null)
+
+      try {
+        const { data: storeEmployees, error: storeError } = (await supabase
+          .from('store_employees')
+          .select(
+            `
+            employee_id,
+            profiles!inner (
+              id,
+              role,
+              full_name,
+              email
+            )
+          `
+          )
+          .eq('store_id', storeId)) as {
+          data: StoreEmployee[] | null
+          error: PostgrestError | null
+        }
+
+        const { data: storeManagers, error: managerError } = (await supabase
+          .from('store_managers')
+          .select(
+            `
+            manager_id,
+            is_primary,
+            profiles!inner (
+              id,
+              role,
+              full_name,
+              email
+            )
+          `
+          )
+          .eq('store_id', storeId)) as {
+          data: StoreManager[] | null
+          error: PostgrestError | null
+        }
+
+        if (storeError) throw storeError
+        if (managerError) throw managerError
+
+        const allProfiles = [
+          ...(storeEmployees?.map((se) => ({
+            ...se.profiles,
+            id: se.profiles.id,
+            is_manager: false,
+          })) ?? []),
+          ...(storeManagers?.map((sm) => ({
+            ...sm.profiles,
+            id: sm.profiles.id,
+            is_manager: true,
+            is_primary: sm.is_primary,
+          })) ?? []),
+        ] as Profile[]
+
+        const uniqueProfiles = Array.from(
+          new Map(allProfiles.map((item) => [item.id, item])).values()
+        )
+
+        setEmployees(uniqueProfiles)
+
+        const { data: availData, error: availError } = await supabase
+          .from('availability')
+          .select('*')
+          .eq('store_id', storeId)
+          .gte('date', format(weekDates[0], 'yyyy-MM-dd'))
+          .lte('date', format(weekDates[6], 'yyyy-MM-dd'))
+
+        if (availError) throw availError
+
+        setAvailability(availData ?? [])
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'An error occurred')
+      } finally {
+        setLoading(false)
+      }
+    }
+
     fetchData()
-  }, [currentWeek, storeId])
-
-  async function fetchData() {
-    if (!storeId) {
-      setError('Store ID is required')
-      setLoading(false)
-      return
-    }
-
-    setLoading(true)
-    setError(null)
-
-    try {
-      const { data: storeEmployees, error: storeError } = (await supabase
-        .from('store_employees')
-        .select(
-          `
-          employee_id,
-          profiles!inner (
-            id,
-            role,
-            full_name,
-            email
-          )
-        `
-        )
-        .eq('store_id', storeId)) as {
-        data: StoreEmployee[] | null
-        error: PostgrestError | null
-      }
-
-      const { data: storeManagers, error: managerError } = (await supabase
-        .from('store_managers')
-        .select(
-          `
-          manager_id,
-          is_primary,
-          profiles!inner (
-            id,
-            role,
-            full_name,
-            email
-          )
-        `
-        )
-        .eq('store_id', storeId)) as {
-        data: StoreManager[] | null
-        error: PostgrestError | null
-      }
-
-      if (storeError) throw storeError
-      if (managerError) throw managerError
-
-      const allProfiles = [
-        ...(storeEmployees?.map((se) => ({
-          ...se.profiles,
-          id: se.profiles.id,
-          is_manager: false,
-        })) ?? []),
-        ...(storeManagers?.map((sm) => ({
-          ...sm.profiles,
-          id: sm.profiles.id,
-          is_manager: true,
-          is_primary: sm.is_primary,
-        })) ?? []),
-      ] as Profile[]
-
-      const uniqueProfiles = Array.from(
-        new Map(allProfiles.map((item) => [item.id, item])).values()
-      )
-
-      setEmployees(uniqueProfiles)
-
-      const { data: availData, error: availError } = await supabase
-        .from('availability')
-        .select('*')
-        .eq('store_id', storeId)
-        .gte('date', format(weekDates[0], 'yyyy-MM-dd'))
-        .lte('date', format(weekDates[6], 'yyyy-MM-dd'))
-
-      if (availError) throw availError
-
-      setAvailability(availData ?? [])
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred')
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [storeId, supabase, weekDates])
 
   function getAvailabilityDisplay(userId: string, date: Date) {
     const dateStr = format(date, 'yyyy-MM-dd')
@@ -322,7 +380,100 @@ function AvailabilityTable({ storeId }: Props) {
   }
 
   if (error) {
-    return <ErrorDisplay message={error} onRetry={fetchData} />
+    return (
+      <ErrorDisplay
+        message={error}
+        onRetry={() => {
+          const fetchData = async () => {
+            setLoading(true)
+            setError(null)
+            try {
+              const { data: storeEmployees, error: storeError } =
+                (await supabase
+                  .from('store_employees')
+                  .select(
+                    `
+                  employee_id,
+                  profiles!inner (
+                    id,
+                    role,
+                    full_name,
+                    email
+                  )
+                `
+                  )
+                  .eq('store_id', storeId)) as {
+                  data: StoreEmployee[] | null
+                  error: PostgrestError | null
+                }
+
+              const { data: storeManagers, error: managerError } =
+                (await supabase
+                  .from('store_managers')
+                  .select(
+                    `
+                  manager_id,
+                  is_primary,
+                  profiles!inner (
+                    id,
+                    role,
+                    full_name,
+                    email
+                  )
+                `
+                  )
+                  .eq('store_id', storeId)) as {
+                  data: StoreManager[] | null
+                  error: PostgrestError | null
+                }
+
+              if (storeError) throw storeError
+              if (managerError) throw managerError
+
+              const allProfiles = [
+                ...(storeEmployees?.map((se) => ({
+                  ...se.profiles,
+                  id: se.profiles.id,
+                  is_manager: false,
+                })) ?? []),
+                ...(storeManagers?.map((sm) => ({
+                  ...sm.profiles,
+                  id: sm.profiles.id,
+                  is_manager: true,
+                  is_primary: sm.is_primary,
+                })) ?? []),
+              ] as Profile[]
+
+              const uniqueProfiles = Array.from(
+                new Map(allProfiles.map((item) => [item.id, item])).values()
+              )
+
+              setEmployees(uniqueProfiles)
+
+              const { data: availData, error: availError } = await supabase
+                .from('availability')
+                .select('*')
+                .eq('store_id', storeId)
+                .gte('date', format(weekDates[0], 'yyyy-MM-dd'))
+                .lte('date', format(weekDates[6], 'yyyy-MM-dd'))
+
+              if (availError) throw availError
+
+              setAvailability(availData ?? [])
+
+              setLoading(false)
+            } catch (error) {
+              setError(
+                error instanceof Error ? error.message : 'An error occurred'
+              )
+              setLoading(false)
+            }
+          }
+
+          fetchData()
+        }}
+      />
+    )
   }
 
   if (employees.length === 0) {

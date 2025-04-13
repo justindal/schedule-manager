@@ -88,9 +88,12 @@ export default function NewStore() {
       showSuccess('Success', 'Store created successfully!')
       router.push('/manager')
       router.refresh()
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating store:', error)
-      showError('Error', error?.message || 'An unexpected error occurred')
+      showError(
+        'Error',
+        error instanceof Error ? error.message : 'An unexpected error occurred'
+      )
     } finally {
       setLoading(false)
     }

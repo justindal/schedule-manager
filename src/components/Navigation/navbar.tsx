@@ -33,8 +33,13 @@ interface StoreData {
   address: string
 }
 
+interface UserData {
+  id: string
+  email: string
+}
+
 interface NavbarData {
-  user: any
+  user: UserData
   managerStores: Array<{
     is_primary: boolean
     stores: {
