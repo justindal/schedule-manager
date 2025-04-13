@@ -125,7 +125,7 @@ export default function ManagerAvailabilityPage() {
     }
 
     init()
-  }, [storeId])
+  }, [storeId, supabase])
 
   if (loading) {
     return <AvailabilitySkeleton />

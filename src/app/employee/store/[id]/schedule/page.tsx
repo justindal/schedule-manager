@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation'
 import { createClientBrowser } from '@/app/utils/supabase/client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   format,
   eachDayOfInterval,
@@ -188,111 +188,111 @@ export default function EmployeeSchedulePage() {
   )
 
   useEffect(() => {
-    fetchData()
-  }, [currentWeek, storeId])
+    const fetchData = async () => {
+      try {
+        const { data: storeData, error: storeError } = await supabase
+          .from('stores')
+          .select('name')
+          .eq('id', storeId)
+          .single()
 
-  async function fetchData() {
-    try {
-      const { data: storeData, error: storeError } = await supabase
-        .from('stores')
-        .select('name')
-        .eq('id', storeId)
-        .single()
+        if (storeError) throw storeError
+        setStoreName(storeData?.name || '')
 
-      if (storeError) throw storeError
-      setStoreName(storeData?.name || '')
-
-      const { data: scheduleData } = await supabase
-        .from('schedules')
-        .select('*')
-        .eq('store_id', storeId)
-        .eq('week_start_date', format(startOfWeek(currentWeek), 'yyyy-MM-dd'))
-        .single()
-
-      if (scheduleData) {
-        const { data: shiftData } = await supabase
-          .from('shifts')
+        const { data: scheduleData } = await supabase
+          .from('schedules')
           .select('*')
-          .eq('schedule_id', scheduleData.id)
+          .eq('store_id', storeId)
+          .eq('week_start_date', format(startOfWeek(currentWeek), 'yyyy-MM-dd'))
+          .single()
 
-        setShifts(shiftData ?? [])
-      }
+        if (scheduleData) {
+          const { data: shiftData } = await supabase
+            .from('shifts')
+            .select('*')
+            .eq('schedule_id', scheduleData.id)
 
-      const { data: employeeData, error: employeeError } = (await supabase
-        .from('store_employees')
-        .select(
-          `
-          employee_id,
-          profiles!inner (
-            id,
-            full_name
-          )
-        `
-        )
-        .eq('store_id', storeId)) as {
-        data: EmployeeJoinResult[] | null
-        error: PostgrestError | null
-      }
-
-      if (employeeError) throw employeeError
-
-      const { data: managerData, error: managerError } = (await supabase
-        .from('store_managers')
-        .select(
-          `
-          manager_id,
-          profiles!inner (
-            id,
-            full_name
-          )
-        `
-        )
-        .eq('store_id', storeId)
-        .eq('status', 'approved')) as {
-        data: ManagerJoinResult[] | null
-        error: PostgrestError | null
-      }
-
-      if (managerError) throw managerError
-      const staffMap = new Map()
-
-      employeeData?.forEach((item) => {
-        staffMap.set(item.employee_id, {
-          id: item.employee_id,
-          full_name: item.profiles.full_name,
-          is_manager: false,
-        })
-      })
-
-      managerData?.forEach((item) => {
-        if (staffMap.has(item.manager_id)) {
-          const existingEntry = staffMap.get(item.manager_id)
-          existingEntry.is_manager = true
-        } else {
-          staffMap.set(item.manager_id, {
-            id: item.manager_id,
-            full_name: item.profiles.full_name,
-            is_manager: true,
-          })
+          setShifts(shiftData ?? [])
         }
-      })
 
-      setEmployees(Array.from(staffMap.values()))
+        const { data: employeeData, error: employeeError } = (await supabase
+          .from('store_employees')
+          .select(
+            `
+            employee_id,
+            profiles!inner (
+              id,
+              full_name
+            )
+          `
+          )
+          .eq('store_id', storeId)) as {
+          data: EmployeeJoinResult[] | null
+          error: PostgrestError | null
+        }
 
-      const { data: availabilityData } = await supabase
-        .from('availability')
-        .select('*')
-        .eq('store_id', storeId)
-        .gte('date', format(weekDates[0], 'yyyy-MM-dd'))
-        .lte('date', format(weekDates[6], 'yyyy-MM-dd'))
+        if (employeeError) throw employeeError
 
-      setAvailabilities(availabilityData ?? [])
-    } catch (error) {
-      console.error('Error fetching data:', error)
-    } finally {
-      setLoading(false)
+        const { data: managerData, error: managerError } = (await supabase
+          .from('store_managers')
+          .select(
+            `
+            manager_id,
+            profiles!inner (
+              id,
+              full_name
+            )
+          `
+          )
+          .eq('store_id', storeId)
+          .eq('status', 'approved')) as {
+          data: ManagerJoinResult[] | null
+          error: PostgrestError | null
+        }
+
+        if (managerError) throw managerError
+        const staffMap = new Map()
+
+        employeeData?.forEach((item) => {
+          staffMap.set(item.employee_id, {
+            id: item.employee_id,
+            full_name: item.profiles.full_name,
+            is_manager: false,
+          })
+        })
+
+        managerData?.forEach((item) => {
+          if (staffMap.has(item.manager_id)) {
+            const existingEntry = staffMap.get(item.manager_id)
+            existingEntry.is_manager = true
+          } else {
+            staffMap.set(item.manager_id, {
+              id: item.manager_id,
+              full_name: item.profiles.full_name,
+              is_manager: true,
+            })
+          }
+        })
+
+        setEmployees(Array.from(staffMap.values()))
+
+        const { data: availabilityData } = await supabase
+          .from('availability')
+          .select('*')
+          .eq('store_id', storeId)
+          .gte('date', format(weekDates[0], 'yyyy-MM-dd'))
+          .lte('date', format(weekDates[6], 'yyyy-MM-dd'))
+
+        setAvailabilities(availabilityData ?? [])
+      } catch (error) {
+        console.error('Error fetching data:', error)
+      } finally {
+        setLoading(false)
+      }
     }
-  }
+
+    fetchData()
+  }, [storeId, supabase, currentWeek, weekDates])
 
   if (loading) {
     return <ScheduleSkeleton />

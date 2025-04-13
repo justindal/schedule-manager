@@ -267,16 +267,7 @@ export default function StoreDetail({
   useEffect(() => {
     loadStoreData()
     checkSelfEmployeeStatus()
-
-    const refreshInterval = setInterval(() => {
-      loadStoreData()
-      checkSelfEmployeeStatus()
-    }, REFRESH_INTERVAL_MS)
-
-    return () => {
-      clearInterval(refreshInterval)
-    }
-  }, [id])
+  }, [id, loadStoreData, checkSelfEmployeeStatus])
 
   async function loadStoreData() {
     const supabase = createClientBrowser()

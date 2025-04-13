@@ -124,7 +124,13 @@ function ShiftCell({
   date: Date
   employee: Employee
   viewOnly: boolean
-  setEditingShift: Function
+  setEditingShift: (
+    data: {
+      employeeId: string
+      date: Date
+      shift?: Shift
+    } | null
+  ) => void
 }) {
   return (
     <TableCell className='text-center p-2 h-16'>
@@ -285,7 +291,7 @@ export default function SchedulePage() {
   useEffect(() => {
     fetchData()
     checkManagerStatus()
-  }, [currentWeek, storeId])
+  }, [currentWeek, storeId, fetchData, checkManagerStatus])
 
   async function checkManagerStatus() {
     const { data: user } = await supabase.auth.getUser()
@@ -707,7 +713,9 @@ export default function SchedulePage() {
           <form
             onSubmit={(e) => {
               e.preventDefault()
-              !viewOnly && handleShiftSave(new FormData(e.currentTarget))
+              if (!viewOnly) {
+                handleShiftSave(new FormData(e.currentTarget))
+              }
             }}
             className='space-y-4'
           >

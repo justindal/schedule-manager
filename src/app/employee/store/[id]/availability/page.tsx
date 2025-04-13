@@ -1,7 +1,7 @@
 'use client'
 
 import { createClientBrowser } from '@/app/utils/supabase/client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Calendar } from '@/components/ui/calendar'
 import { Button } from '@/components/ui/button'
 import { useParams } from 'next/navigation'
@@ -151,65 +151,7 @@ export default function AvailabilityPage() {
     return availabilities.some((a) => a.date === formattedDate)
   }
 
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const { data } = await supabase.auth.getUser()
-        setUser(data.user)
-
-        if (!data.user) {
-          setError('No authenticated user found')
-          return
-        }
-
-        const { data: storeData, error: storeError } = await supabase
-          .from('stores')
-          .select('name')
-          .eq('id', storeId)
-          .single()
-
-        if (storeError) {
-          setError(storeError.message)
-          return
-        }
-
-        setStoreName(storeData?.name || '')
-
-        const { data: availabilityData, error: availabilityError } =
-          await supabase
-            .from('availability')
-            .select('*')
-            .eq('store_id', storeId)
-            .eq('user_id', data.user.id)
-            .order('date', { ascending: true })
-
-        if (availabilityError) {
-          setError(availabilityError.message)
-          return
-        }
-
-        setAvailabilities(availabilityData || [])
-      } catch (error) {
-        setError(
-          error instanceof Error ? error.message : 'Failed to fetch user data'
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    init()
-  }, [storeId])
-
-  if (loading) {
-    return <AvailabilitySkeleton />
-  }
-
-  if (error) {
-    return <div className='text-red-500'>Error: {error}</div>
-  }
-
-  async function fetchAvailability() {
+  const fetchAvailability = useCallback(async () => {
     try {
       if (!user) {
         setError('No authenticated user found')
@@ -232,6 +174,40 @@ export default function AvailabilityPage() {
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to fetch data')
     }
+  }, [supabase, storeId, user, setError, setAvailabilities])
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const { data: storeData, error: storeError } = await supabase
+          .from('stores')
+          .select('name')
+          .eq('id', storeId)
+          .single()
+
+        if (storeError) {
+          setError(storeError.message)
+          return
+        }
+
+        setStoreName(storeData.name)
+        await fetchAvailability()
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'Failed to load data')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    init()
+  }, [storeId, supabase, fetchAvailability])
+
+  if (loading) {
+    return <AvailabilitySkeleton />
+  }
+
+  if (error) {
+    return <div className='text-red-500'>Error: {error}</div>
   }
 
   async function handleSubmit(e: React.FormEvent) {
