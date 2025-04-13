@@ -39,7 +39,7 @@ export function LeaveStoreButton({ storeId }: { storeId: string }) {
       size='sm'
       onClick={handleLeaveStore}
       disabled={isLoading}
-      className='text-xs h-8'
+      className='text-xs h-8 whitespace-nowrap min-w-[70px]'
     >
       <LogOut className='h-3 w-3 mr-1.5' />
       {isLoading ? 'Leaving...' : 'Leave'}
