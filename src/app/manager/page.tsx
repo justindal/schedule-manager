@@ -20,7 +20,7 @@ import {
 import { JoinStoreDialog } from './JoinStoreDialog'
 
 export default async function ManagerDashboard() {
-  // @ts-ignore - Next.js headers helper
+  // @ts-expect-error - Next.js headers helper
   headers({ 'Cache-Control': 'no-store' })
 
   const supabase = await createClient()
