@@ -13,6 +13,22 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from '@/components/ui/use-toast'
+
+const showError = (title: string, description: string) => {
+  toast({
+    title,
+    description,
+    variant: 'destructive',
+  })
+}
+
+const showSuccess = (title: string, description: string) => {
+  toast({
+    title,
+    description,
+  })
+}
 
 export default function NewStore() {
   const router = useRouter()
@@ -30,39 +46,51 @@ export default function NewStore() {
       const user = (await supabase.auth.getUser()).data.user
 
       if (!user) {
-        throw new Error('Not authenticated')
+        showError(
+          'Authentication Error',
+          'You must be logged in to create a store'
+        )
+        setLoading(false)
+        return
       }
 
-      const { data: store, error: storeError } = await supabase
-        .from('stores')
-        .insert([
-          {
-            name: formData.get('name'),
-            address: formData.get('address'),
-            phone_number: formData.get('phone'),
-          },
-        ])
-        .select()
-        .single()
+      const { data: joinCode, error: joinCodeError } = await supabase.rpc(
+        'generate_store_join_code'
+      )
 
-      if (storeError) throw storeError
+      if (joinCodeError) {
+        console.error('Error generating join code:', joinCodeError)
+        showError('Error', 'Failed to generate join code')
+        setLoading(false)
+        return
+      }
 
-      const { error: managerError } = await supabase
-        .from('store_managers')
-        .insert([
-          {
-            store_id: store.id,
-            manager_id: user.id,
-            is_primary: true,
-          },
-        ])
+      console.log('Generated join code for new store:', joinCode)
 
-      if (managerError) throw managerError
+      const { data: storeResult, error: createError } = await supabase.rpc(
+        'create_store_with_manager',
+        {
+          store_name: formData.get('name') as string,
+          store_address: formData.get('address') as string,
+          store_phone: formData.get('phone') as string,
+          join_code: joinCode,
+          manager_id: user.id,
+        }
+      )
 
+      if (createError) {
+        console.error('Error creating store:', createError)
+        showError('Error', `Failed to create store: ${createError.message}`)
+        setLoading(false)
+        return
+      }
+
+      showSuccess('Success', 'Store created successfully!')
       router.push('/manager')
       router.refresh()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating store:', error)
+      showError('Error', error?.message || 'An unexpected error occurred')
     } finally {
       setLoading(false)
     }

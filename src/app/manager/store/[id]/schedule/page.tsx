@@ -113,6 +113,146 @@ function calculateTotalHours(shifts: Shift[], employeeId: string): number {
     }, 0)
 }
 
+function ShiftCell({
+  shift,
+  date,
+  employee,
+  viewOnly,
+  setEditingShift,
+}: {
+  shift: Shift | undefined
+  date: Date
+  employee: Employee
+  viewOnly: boolean
+  setEditingShift: Function
+}) {
+  return (
+    <TableCell className='text-center p-2 h-16'>
+      {shift ? (
+        <Button
+          variant='outline'
+          size='sm'
+          onClick={() =>
+            !viewOnly &&
+            setEditingShift({
+              employeeId: employee.id,
+              date,
+              shift,
+            })
+          }
+          disabled={viewOnly}
+          className='text-xs h-auto py-1 px-2 w-full'
+        >
+          <div className='text-sm'>
+            {format(new Date(shift.start_time), 'h:mm a')} -{' '}
+            {format(new Date(shift.end_time), 'h:mm a')}
+            {shift.notes && (
+              <div className='text-xs text-muted-foreground truncate max-w-[120px]'>
+                {shift.notes}
+              </div>
+            )}
+          </div>
+        </Button>
+      ) : (
+        <Button
+          variant='ghost'
+          size='sm'
+          className='h-10 w-full border border-dashed border-gray-300 hover:border-gray-400 bg-gray-50'
+          onClick={() =>
+            !viewOnly &&
+            setEditingShift({
+              employeeId: employee.id,
+              date,
+            })
+          }
+          disabled={viewOnly}
+        >
+          <span className='text-xs text-muted-foreground'>
+            {viewOnly ? '—' : 'Add'}
+          </span>
+        </Button>
+      )}
+    </TableCell>
+  )
+}
+
+function ScheduleSkeleton() {
+  return (
+    <div className='container mx-auto px-4 py-6 max-w-6xl'>
+      <div className='flex items-center justify-between mb-6'>
+        <Skeleton className='h-8 w-64' />
+        <div className='flex space-x-2'>
+          <Skeleton className='h-10 w-36' />
+          <Skeleton className='h-10 w-10' />
+          <Skeleton className='h-10 w-10' />
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <Skeleton className='h-6 w-48 mb-2' />
+          <Skeleton className='h-4 w-64' />
+        </CardHeader>
+        <CardContent>
+          <div className='space-y-6'>
+            <div className='space-y-4'>
+              <div className='flex justify-between items-center'>
+                <Skeleton className='h-6 w-32' />
+                <div className='flex space-x-2'>
+                  <Skeleton className='h-10 w-10' />
+                  <Skeleton className='h-10 w-10' />
+                </div>
+              </div>
+
+              <div className='grid grid-cols-7 gap-1 text-center'>
+                {Array(7)
+                  .fill(0)
+                  .map((_, i) => (
+                    <Skeleton key={i} className='h-10 w-full' />
+                  ))}
+              </div>
+
+              {/* Schedule grid */}
+              <div className='space-y-4'>
+                {Array(5)
+                  .fill(0)
+                  .map((_, i) => (
+                    <div key={i} className='grid grid-cols-8 gap-1'>
+                      <Skeleton className='h-12 w-full' />
+                      {Array(7)
+                        .fill(0)
+                        .map((_, j) => (
+                          <Skeleton key={j} className='h-12 w-full' />
+                        ))}
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <div className='space-y-4'>
+              <Skeleton className='h-6 w-48' />
+              <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4'>
+                {Array(6)
+                  .fill(0)
+                  .map((_, i) => (
+                    <div key={i} className='border rounded-md p-4 space-y-2'>
+                      <Skeleton className='h-5 w-32' />
+                      <Skeleton className='h-4 w-full' />
+                      <div className='flex justify-between'>
+                        <Skeleton className='h-4 w-24' />
+                        <Skeleton className='h-4 w-24' />
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 export default function SchedulePage() {
   const params = useParams()
   const storeId = params.id as string
@@ -129,6 +269,9 @@ export default function SchedulePage() {
   const [availabilities, setAvailabilities] = useState<AvailabilityData[]>([])
   const supabase = createClientBrowser()
   const [showAvailabilities, setShowAvailabilities] = useState(false)
+  const [managerStatus, setManagerStatus] = useState<string | null>(null)
+  const [viewOnly, setViewOnly] = useState(false)
+  const [storeName, setStoreName] = useState<string>('')
 
   const weekDates = useMemo(
     () =>
@@ -141,10 +284,35 @@ export default function SchedulePage() {
 
   useEffect(() => {
     fetchData()
+    checkManagerStatus()
   }, [currentWeek, storeId])
+
+  async function checkManagerStatus() {
+    const { data: user } = await supabase.auth.getUser()
+    if (!user.user) return
+
+    const { data: managerData } = await supabase
+      .from('store_managers')
+      .select('status')
+      .eq('store_id', storeId)
+      .eq('manager_id', user.user.id)
+      .maybeSingle()
+
+    setManagerStatus(managerData?.status || null)
+    setViewOnly(managerData?.status !== 'approved')
+  }
 
   async function fetchData() {
     try {
+      const { data: storeData, error: storeError } = await supabase
+        .from('stores')
+        .select('name')
+        .eq('id', storeId)
+        .single()
+
+      if (storeError) throw storeError
+      setStoreName(storeData?.name || '')
+
       const { data: employeeData, error: employeeError } = (await supabase
         .from('store_employees')
         .select(
@@ -172,7 +340,8 @@ export default function SchedulePage() {
           )
         `
         )
-        .eq('store_id', storeId)) as {
+        .eq('store_id', storeId)
+        .eq('status', 'approved')) as {
         data: ManagerJoinResult[] | null
         error: PostgrestError | null
       }
@@ -310,14 +479,35 @@ export default function SchedulePage() {
   }
 
   if (loading) {
-    return <Skeleton className='w-full h-[600px]' />
+    return <ScheduleSkeleton />
   }
 
   return (
-    <div className='container mx-auto px-4 py-8 space-y-6'>
-      <h1 className='text-2xl font-semibold mb-6 text-center sm:text-left'>
-        Schedule Manager
-      </h1>
+    <div className='container mx-auto px-4 py-8 space-y-6 max-w-7xl'>
+      {managerStatus && managerStatus !== 'approved' && (
+        <Card className='bg-amber-50 border-amber-200 mb-4'>
+          <CardContent className='p-4'>
+            <div className='flex items-center'>
+              <AlertCircle className='h-5 w-5 text-amber-600 mr-2' />
+              <div>
+                <h3 className='font-medium text-amber-800'>Limited Access</h3>
+                <p className='text-sm text-amber-700'>
+                  Your manager request is {managerStatus}. You can view
+                  schedules but cannot make changes. Contact an approved manager
+                  for assistance.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6'>
+        <h1 className='text-2xl font-semibold'>
+          {storeName}{' '}
+          <span className='text-muted-foreground font-normal'>Schedule</span>
+        </h1>
+      </div>
 
       <div className='bg-card rounded-md p-4 border'>
         <div className='flex items-center justify-center gap-3'>
@@ -428,7 +618,7 @@ export default function SchedulePage() {
       <Card>
         <CardHeader className='py-4'>
           <CardTitle>Weekly Schedule</CardTitle>
-          <CardDescription>Manage employee shifts for the week</CardDescription>
+          <CardDescription>View all shifts for {storeName}</CardDescription>
         </CardHeader>
         <CardContent className='p-0'>
           <div className='overflow-x-auto'>
@@ -473,31 +663,14 @@ export default function SchedulePage() {
                               format(date, 'yyyy-MM-dd')
                         )
                         return (
-                          <TableCell
+                          <ShiftCell
                             key={date.toString()}
-                            className='text-center p-0'
-                          >
-                            <Button
-                              variant='ghost'
-                              className='w-full h-full p-2'
-                              onClick={() =>
-                                setEditingShift({
-                                  employeeId: employee.id,
-                                  date,
-                                  shift,
-                                })
-                              }
-                            >
-                              {shift ? (
-                                <div className='text-sm'>
-                                  {format(new Date(shift.start_time), 'h:mm a')}{' '}
-                                  - {format(new Date(shift.end_time), 'h:mm a')}
-                                </div>
-                              ) : (
-                                <div className='text-gray-400'>-</div>
-                              )}
-                            </Button>
-                          </TableCell>
+                            shift={shift}
+                            date={date}
+                            employee={employee}
+                            viewOnly={viewOnly}
+                            setEditingShift={setEditingShift}
+                          />
                         )
                       })}
                       <TableCell className='text-center font-medium'>
@@ -517,6 +690,7 @@ export default function SchedulePage() {
           <DialogHeader>
             <DialogTitle>
               {editingShift?.shift ? 'Edit Shift' : 'Add Shift'}
+              {viewOnly && ' (View Only)'}
             </DialogTitle>
             {editingShift && (
               <DialogDescription>
@@ -525,13 +699,15 @@ export default function SchedulePage() {
                   employees.find((e) => e.id === editingShift.employeeId)
                     ?.full_name
                 }
+                {viewOnly &&
+                  ' - You cannot make changes due to your access level.'}
               </DialogDescription>
             )}
           </DialogHeader>
           <form
             onSubmit={(e) => {
               e.preventDefault()
-              handleShiftSave(new FormData(e.currentTarget))
+              !viewOnly && handleShiftSave(new FormData(e.currentTarget))
             }}
             className='space-y-4'
           >
@@ -548,6 +724,7 @@ export default function SchedulePage() {
                       ? format(new Date(editingShift.shift.start_time), 'HH:mm')
                       : '09:00'
                   }
+                  disabled={viewOnly}
                 />
               </div>
               <div className='space-y-2'>
@@ -562,6 +739,7 @@ export default function SchedulePage() {
                       ? format(new Date(editingShift.shift.end_time), 'HH:mm')
                       : '17:00'
                   }
+                  disabled={viewOnly}
                 />
               </div>
             </div>
@@ -574,10 +752,11 @@ export default function SchedulePage() {
                 placeholder='Optional notes about this shift'
                 className='resize-none'
                 defaultValue={editingShift?.shift?.notes || ''}
+                disabled={viewOnly}
               />
             </div>
             <DialogFooter className='flex-col sm:flex-row sm:justify-end gap-2 sm:gap-0'>
-              {editingShift?.shift && (
+              {!viewOnly && editingShift?.shift && (
                 <Button
                   type='button'
                   variant='destructive'
@@ -593,9 +772,9 @@ export default function SchedulePage() {
                   variant='outline'
                   onClick={() => setEditingShift(null)}
                 >
-                  Cancel
+                  {viewOnly ? 'Close' : 'Cancel'}
                 </Button>
-                <Button type='submit'>Save</Button>
+                {!viewOnly && <Button type='submit'>Save</Button>}
               </div>
             </DialogFooter>
           </form>

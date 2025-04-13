@@ -61,10 +61,50 @@ interface Props {
 export default function AvailabilityPage() {
   const params = useParams()
   const storeId = params.id as string
+  const [storeName, setStoreName] = useState<string>('')
+  const [loading, setLoading] = useState(true)
+  const supabase = createClientBrowser()
+
+  useEffect(() => {
+    async function fetchStoreName() {
+      try {
+        const { data, error } = await supabase
+          .from('stores')
+          .select('name')
+          .eq('id', storeId)
+          .single()
+
+        if (error) throw error
+        setStoreName(data?.name || '')
+      } catch (error) {
+        console.error('Error fetching store name:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchStoreName()
+  }, [storeId])
+
+  if (loading) {
+    return (
+      <div className='container mx-auto px-4 py-8'>
+        <Skeleton className='h-8 w-64 mb-6' />
+        <Skeleton className='h-64 w-full' />
+      </div>
+    )
+  }
 
   return (
     <div className='container mx-auto px-4 py-8'>
-      <h1 className='text-2xl font-semibold mb-6'>Staff Availability</h1>
+      <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6'>
+        <h1 className='text-2xl font-semibold'>
+          {storeName}{' '}
+          <span className='text-muted-foreground font-normal'>
+            Staff Availability
+          </span>
+        </h1>
+      </div>
       <AvailabilityTable storeId={storeId} />
     </div>
   )
