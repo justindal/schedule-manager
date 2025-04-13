@@ -16,32 +16,69 @@ export default function JoinStore() {
     e.preventDefault()
     setError('')
 
+    if (!code.trim()) {
+      setError('Please enter a store code')
+      return
+    }
+
+    const codeRegex = /^[A-Za-z0-9]{6}$/
+    if (!codeRegex.test(code.trim())) {
+      setError('Store code must be 6 alphanumeric characters')
+      return
+    }
+
     const supabase = createClientBrowser()
     const user = (await supabase.auth.getUser()).data.user
 
-    const { data: store, error: storeError } = await supabase
-      .from('stores')
-      .select('id')
-      .eq('join_code', code.toUpperCase())
-      .single()
-
-    if (storeError || !store) {
-      setError('Invalid store code')
+    if (!user) {
+      setError('You must be logged in to join a store')
       return
     }
 
-    const { error: joinError } = await supabase.from('store_employees').insert({
-      store_id: store.id,
-      employee_id: user?.id,
-    })
+    try {
+      const { data: store, error: storeError } = await supabase
+        .from('stores')
+        .select('id, name')
+        .ilike('join_code', code.trim().toUpperCase())
+        .single()
 
-    if (joinError) {
-      setError('Failed to join store')
-      return
+      if (storeError || !store) {
+        console.error('Store error:', storeError)
+        setError('Invalid store code')
+        return
+      }
+
+      const { data: existingEmployee, error: existingError } = await supabase
+        .from('store_employees')
+        .select('*')
+        .eq('store_id', store.id)
+        .eq('employee_id', user.id)
+        .maybeSingle()
+
+      if (existingEmployee) {
+        setError(`You are already an employee at ${store.name}`)
+        return
+      }
+
+      const { error: joinError } = await supabase
+        .from('store_employees')
+        .insert({
+          store_id: store.id,
+          employee_id: user.id,
+        })
+
+      if (joinError) {
+        console.error('Join error:', joinError)
+        setError(`Failed to join store: ${joinError.message}`)
+        return
+      }
+
+      router.push('/employee')
+      router.refresh()
+    } catch (error) {
+      console.error('Unexpected error:', error)
+      setError('An unexpected error occurred')
     }
-
-    router.push('/employee')
-    router.refresh()
   }
 
   return (

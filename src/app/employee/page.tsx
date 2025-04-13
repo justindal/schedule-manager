@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import Link from 'next/link'
 import { StoreCard } from './components/StoreCard'
+import { headers } from 'next/headers'
 
 interface Store {
   id: string
@@ -22,6 +23,9 @@ interface StoreEmployee {
 }
 
 export default async function EmployeeDashboard() {
+  // @ts-ignore - Next.js headers helper
+  headers({ 'Cache-Control': 'no-store' })
+
   const supabase = await createClient()
   const user = (await supabase.auth.getUser()).data.user
 
@@ -63,7 +67,7 @@ export default async function EmployeeDashboard() {
                 above to get started.
               </div>
             ) : (
-              stores?.map((record: StoreEmployee) => (
+              stores?.map((record) => (
                 <StoreCard key={record.stores.id} store={record.stores} />
               ))
             )}

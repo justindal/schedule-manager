@@ -32,6 +32,7 @@ import {
   CardDescription,
   CardContent,
 } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 
 enum AvailabilityStatus {
   Available = 'available',
@@ -46,6 +47,72 @@ interface Availability {
   user_id: string
   store_id: string
   status: string
+}
+
+function AvailabilitySkeleton() {
+  return (
+    <div className='container mx-auto px-4 py-6 max-w-4xl'>
+      <div className='flex items-center justify-between mb-6'>
+        <Skeleton className='h-8 w-64' />
+        <Skeleton className='h-10 w-32' />
+      </div>
+
+      <div className='space-y-6'>
+        <Card className='shadow-sm'>
+          <CardHeader>
+            <Skeleton className='h-6 w-40 mb-2' />
+            <Skeleton className='h-4 w-64' />
+          </CardHeader>
+          <CardContent>
+            <div className='space-y-4'>
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                <div>
+                  <Skeleton className='h-8 w-full mb-2' />
+                  <Skeleton className='h-60 w-full' />
+                </div>
+                <div className='space-y-4'>
+                  <Skeleton className='h-5 w-full' />
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className='flex items-center gap-2'>
+                      <Skeleton className='h-5 w-5' />
+                      <Skeleton className='h-5 w-32' />
+                    </div>
+                  ))}
+                  <div className='pt-4 flex gap-2'>
+                    <Skeleton className='h-10 w-32' />
+                    <Skeleton className='h-10 w-32' />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <Skeleton className='h-6 w-48' />
+          </CardHeader>
+          <CardContent>
+            <div className='space-y-4'>
+              {[1, 2, 3].map((i) => (
+                <div key={i} className='p-3 border rounded-md'>
+                  <div className='flex justify-between mb-2'>
+                    <Skeleton className='h-5 w-24' />
+                    <Skeleton className='h-5 w-20' />
+                  </div>
+                  <div className='grid grid-cols-2 sm:grid-cols-4 gap-2'>
+                    {[1, 2, 3, 4].map((j) => (
+                      <Skeleton key={j} className='h-8 w-full' />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
 }
 
 export default function AvailabilityPage() {
@@ -63,6 +130,7 @@ export default function AvailabilityPage() {
   const [endTime, setEndTime] = useState('17:00')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [storeName, setStoreName] = useState('')
 
   const prevDate = () => setSelectedDate((prev) => subDays(prev, 1))
   const nextDate = () => setSelectedDate((prev) => addDays(prev, 1))
@@ -94,6 +162,19 @@ export default function AvailabilityPage() {
           return
         }
 
+        const { data: storeData, error: storeError } = await supabase
+          .from('stores')
+          .select('name')
+          .eq('id', storeId)
+          .single()
+
+        if (storeError) {
+          setError(storeError.message)
+          return
+        }
+
+        setStoreName(storeData?.name || '')
+
         const { data: availabilityData, error: availabilityError } =
           await supabase
             .from('availability')
@@ -121,7 +202,7 @@ export default function AvailabilityPage() {
   }, [storeId])
 
   if (loading) {
-    return <div>Loading availabilities...</div>
+    return <AvailabilitySkeleton />
   }
 
   if (error) {
@@ -207,10 +288,15 @@ export default function AvailabilityPage() {
   }
 
   return (
-    <div className='container mx-auto px-4 py-8 space-y-6'>
-      <h1 className='text-2xl font-semibold mb-6 text-center sm:text-left'>
-        My Availability
-      </h1>
+    <div className='container mx-auto px-4 py-6 max-w-4xl'>
+      <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6'>
+        <h1 className='text-2xl font-semibold'>
+          {storeName}{' '}
+          <span className='text-muted-foreground font-normal'>
+            Availability
+          </span>
+        </h1>
+      </div>
 
       <div className='bg-card rounded-md p-4 border'>
         <div className='flex items-center justify-center gap-3'>

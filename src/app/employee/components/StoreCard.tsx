@@ -38,12 +38,12 @@ export function StoreCard({ store }: { store: Store }) {
         </CardDescription>
       </CardHeader>
       <CardContent className='p-4 pt-0'>
-        <div className='flex gap-2 w-full mt-2'>
+        <div className='flex flex-wrap gap-2 w-full mt-2'>
           <Button
             variant='outline'
             size='sm'
             asChild
-            className='flex-1 text-xs h-8'
+            className='flex-1 min-w-[80px] text-xs h-8'
           >
             <Link href={`/employee/store/${store.id}/schedule`}>
               <Calendar className='h-3 w-3 mr-1.5' />
@@ -54,14 +54,16 @@ export function StoreCard({ store }: { store: Store }) {
             variant='outline'
             size='sm'
             asChild
-            className='flex-1 text-xs h-8'
+            className='flex-1 min-w-[80px] text-xs h-8'
           >
             <Link href={`/employee/store/${store.id}/availability`}>
               <Clock className='h-3 w-3 mr-1.5' />
               Availability
             </Link>
           </Button>
-          <LeaveStoreButton storeId={store.id} />
+          <div className='flex-none'>
+            <LeaveStoreButton storeId={store.id} />
+          </div>
         </div>
       </CardContent>
     </Card>

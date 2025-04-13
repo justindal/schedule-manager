@@ -110,6 +110,63 @@ function calculateTotalHours(
     }, 0)
 }
 
+function ScheduleSkeleton() {
+  return (
+    <div className='container mx-auto px-4 py-6 max-w-6xl'>
+      <div className='flex items-center justify-between mb-6'>
+        <Skeleton className='h-8 w-64' />
+        <div className='flex space-x-2'>
+          <Skeleton className='h-10 w-10' />
+          <Skeleton className='h-10 w-10' />
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <Skeleton className='h-6 w-48 mb-2' />
+          <Skeleton className='h-4 w-64' />
+        </CardHeader>
+        <CardContent>
+          <div className='space-y-6'>
+            <div className='space-y-4'>
+              <div className='flex justify-between items-center'>
+                <Skeleton className='h-6 w-32' />
+                <div className='flex space-x-2'>
+                  <Skeleton className='h-10 w-10' />
+                  <Skeleton className='h-10 w-10' />
+                </div>
+              </div>
+
+              <div className='grid grid-cols-7 gap-1 text-center'>
+                {Array(7)
+                  .fill(0)
+                  .map((_, i) => (
+                    <Skeleton key={i} className='h-10 w-full' />
+                  ))}
+              </div>
+
+              <div className='space-y-4'>
+                {Array(5)
+                  .fill(0)
+                  .map((_, i) => (
+                    <div key={i} className='grid grid-cols-8 gap-1'>
+                      <Skeleton className='h-12 w-full' />
+                      {Array(7)
+                        .fill(0)
+                        .map((_, j) => (
+                          <Skeleton key={j} className='h-12 w-full' />
+                        ))}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 export default function EmployeeSchedulePage() {
   const params = useParams()
   const storeId = params.id as string
@@ -118,6 +175,7 @@ export default function EmployeeSchedulePage() {
   const [shifts, setShifts] = useState<Shift[]>([])
   const [loading, setLoading] = useState(true)
   const [availabilities, setAvailabilities] = useState<AvailabilityData[]>([])
+  const [storeName, setStoreName] = useState<string>('')
   const supabase = createClientBrowser()
 
   const weekDates = useMemo(
@@ -135,6 +193,15 @@ export default function EmployeeSchedulePage() {
 
   async function fetchData() {
     try {
+      const { data: storeData, error: storeError } = await supabase
+        .from('stores')
+        .select('name')
+        .eq('id', storeId)
+        .single()
+
+      if (storeError) throw storeError
+      setStoreName(storeData?.name || '')
+
       const { data: scheduleData } = await supabase
         .from('schedules')
         .select('*')
@@ -167,6 +234,8 @@ export default function EmployeeSchedulePage() {
         error: PostgrestError | null
       }
 
+      if (employeeError) throw employeeError
+
       const { data: managerData, error: managerError } = (await supabase
         .from('store_managers')
         .select(
@@ -178,32 +247,37 @@ export default function EmployeeSchedulePage() {
           )
         `
         )
-        .eq('store_id', storeId)) as {
+        .eq('store_id', storeId)
+        .eq('status', 'approved')) as {
         data: ManagerJoinResult[] | null
         error: PostgrestError | null
       }
 
-      if (employeeError) throw employeeError
       if (managerError) throw managerError
+      const staffMap = new Map()
 
-      const allStaff = [
-        ...(employeeData?.map((e) => ({
-          id: e.employee_id,
-          full_name: e.profiles.full_name,
+      employeeData?.forEach((item) => {
+        staffMap.set(item.employee_id, {
+          id: item.employee_id,
+          full_name: item.profiles.full_name,
           is_manager: false,
-        })) ?? []),
-        ...(managerData?.map((m) => ({
-          id: m.manager_id,
-          full_name: m.profiles.full_name,
-          is_manager: true,
-        })) ?? []),
-      ] as Employee[]
+        })
+      })
 
-      const uniqueStaff = Array.from(
-        new Map(allStaff.map((item) => [item.id, item])).values()
-      )
+      managerData?.forEach((item) => {
+        if (staffMap.has(item.manager_id)) {
+          const existingEntry = staffMap.get(item.manager_id)
+          existingEntry.is_manager = true
+        } else {
+          staffMap.set(item.manager_id, {
+            id: item.manager_id,
+            full_name: item.profiles.full_name,
+            is_manager: true,
+          })
+        }
+      })
 
-      setEmployees(uniqueStaff)
+      setEmployees(Array.from(staffMap.values()))
 
       const { data: availabilityData } = await supabase
         .from('availability')
@@ -221,15 +295,21 @@ export default function EmployeeSchedulePage() {
   }
 
   if (loading) {
-    return <Skeleton className='w-full h-[600px]' />
+    return <ScheduleSkeleton />
   }
 
   return (
     <div className='container mx-auto px-4 py-8 space-y-6'>
       <TooltipProvider>
-        <h1 className='text-2xl font-semibold mb-6 text-center sm:text-left'>
-          My Schedule
-        </h1>
+        <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6'>
+          <h1 className='text-2xl font-semibold'>
+            {storeName}{' '}
+            <span className='text-muted-foreground font-normal'>Schedule</span>
+          </h1>
+          <div className='text-sm text-muted-foreground'>
+            Week of {format(weekDates[0], 'MMMM d, yyyy')}
+          </div>
+        </div>
 
         <div className='bg-card rounded-md p-4 border'>
           <div className='flex items-center justify-center gap-3'>
@@ -267,9 +347,7 @@ export default function EmployeeSchedulePage() {
         <Card>
           <CardHeader className='py-4'>
             <CardTitle>Weekly Schedule</CardTitle>
-            <CardDescription>
-              View your assigned shifts for the week
-            </CardDescription>
+            <CardDescription>View all shifts for {storeName}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className='overflow-x-auto'>
