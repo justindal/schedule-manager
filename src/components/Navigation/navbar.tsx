@@ -25,6 +25,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { useState, useEffect } from 'react'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface StoreData {
   id: string
@@ -42,6 +43,26 @@ interface NavbarData {
       address: string
     }
   }>
+}
+
+function NavbarSkeleton() {
+  return (
+    <nav className='border-b'>
+      <div className='container mx-auto px-4 flex h-14 items-center justify-between'>
+        <div className='flex items-center space-x-4'>
+          <Skeleton className='h-5 w-24' />
+          <div className='hidden sm:flex items-center space-x-2'>
+            <Skeleton className='h-10 w-32' />
+            <Skeleton className='h-10 w-32' />
+          </div>
+        </div>
+        <div className='flex items-center space-x-4'>
+          <Skeleton className='h-10 w-32' />
+          <Skeleton className='h-10 w-10' />
+        </div>
+      </div>
+    </nav>
+  )
 }
 
 export function Navbar() {
@@ -69,20 +90,11 @@ export function Navbar() {
   }, [])
 
   if (loading || !data) {
-    return (
-      <nav className='border-b'>
-        <div className='container mx-auto px-4 flex h-14 items-center justify-between'>
-          <div className='flex items-center space-x-4'>
-            <span className='font-bold'>Manager Portal</span>
-          </div>
-        </div>
-      </nav>
-    )
+    return <NavbarSkeleton />
   }
 
   const { user, managerStores } = data
 
-  // Transform the data structure
   const stores = managerStores.map((item) => ({
     id: item.stores.id,
     name: item.stores.name,
@@ -110,6 +122,7 @@ export function Navbar() {
           <span className='hidden sm:inline text-sm text-muted-foreground'>
             {user?.email}
           </span>
+
           <div className='sm:hidden'>
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>

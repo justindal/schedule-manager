@@ -12,70 +12,112 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { useState, useEffect } from 'react'
+import { createClientBrowser } from '@/app/utils/supabase/client'
+import { User } from '@supabase/supabase-js'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface StoreData {
   id: string
   name: string
 }
 
-interface NavbarData {
-  user: any
-  employeeStores: Array<{
-    stores: {
-      id: string
-      name: string
-    }
-  }>
+interface StoreEmployee {
+  stores: {
+    id: string
+    name: string
+  }
+}
+
+function NavbarSkeleton() {
+  return (
+    <nav className='border-b'>
+      <div className='container mx-auto px-4 flex h-14 items-center justify-between'>
+        <div className='flex items-center space-x-4'>
+          <Skeleton className='h-5 w-36' />
+          <div className='hidden sm:flex items-center space-x-2'>
+            <Skeleton className='h-10 w-32' />
+          </div>
+        </div>
+        <div className='flex items-center space-x-4'>
+          <Skeleton className='hidden sm:inline h-4 w-40' />
+          <Skeleton className='h-10 w-10 sm:hidden' />
+          <Skeleton className='hidden sm:inline h-10 w-24' />
+        </div>
+      </div>
+    </nav>
+  )
 }
 
 export function EmployeeNavbar() {
   const [open, setOpen] = useState(false)
-  const [data, setData] = useState<NavbarData | null>(null)
+  const [employeeStores, setEmployeeStores] = useState<StoreEmployee[]>([])
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const refreshData = () => {
+    setRefreshKey((prev) => prev + 1)
+  }
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch('/api/user/navbar-data')
-        if (!response.ok) {
-          throw new Error('Failed to fetch navbar data')
-        }
-        const json = await response.json()
-        setData(json)
-      } catch (error) {
-        console.error('Error loading navbar data:', error)
-      } finally {
+    window.addEventListener('focus', refreshData)
+
+    return () => {
+      window.removeEventListener('focus', refreshData)
+    }
+  }, [])
+
+  useEffect(() => {
+    async function fetchData() {
+      const supabase = createClientBrowser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      setUser(user)
+
+      if (!user) {
         setLoading(false)
+        return
       }
+
+      const { data: storeEmployees } = await supabase
+        .from('store_employees')
+        .select(
+          `
+          stores (
+            id,
+            name
+          )
+        `
+        )
+        .eq('employee_id', user?.id)
+
+      console.log(
+        'Store data structure:',
+        JSON.stringify(storeEmployees, null, 2)
+      )
+
+      setEmployeeStores(storeEmployees as any)
+      setLoading(false)
     }
 
     fetchData()
-  }, [])
+  }, [refreshKey])
 
-  if (loading || !data) {
-    return (
-      <nav className='border-b'>
-        <div className='container mx-auto px-4 flex h-14 items-center justify-between'>
-          <div className='flex items-center space-x-4'>
-            <span className='font-bold'>Employee Portal</span>
-          </div>
-        </div>
-      </nav>
-    )
+  if (loading || !user) {
+    return <NavbarSkeleton />
   }
-
-  const { user, employeeStores } = data
 
   return (
     <nav className='border-b'>
       <div className='container mx-auto px-4 flex h-14 items-center justify-between'>
         <div className='flex items-center space-x-4'>
-          <Link href='/employee' className='font-bold'>
+          <Link href='/employee' className='font-bold' onClick={refreshData}>
             Employee Portal
           </Link>
           <div className='hidden sm:flex items-center space-x-2'>
             <Button variant='ghost' asChild>
-              <Link href='/employee'>
+              <Link href='/employee' onClick={refreshData}>
                 <Store className='w-4 h-4 mr-2' />
                 My Stores
               </Link>
@@ -93,107 +135,95 @@ export function EmployeeNavbar() {
                   <Menu className='h-5 w-5' />
                 </Button>
               </SheetTrigger>
-              <SheetContent side='right'>
+              <SheetContent>
                 <SheetHeader>
                   <SheetTitle>Menu</SheetTitle>
                 </SheetHeader>
-                <div className='flex flex-col gap-3 mt-4'>
-                  <div className='text-sm text-muted-foreground'>
-                    {user?.email}
-                  </div>
+                <div className='mt-4 space-y-4'>
+                  <Button
+                    variant='ghost'
+                    className='w-full justify-start'
+                    asChild
+                    onClick={() => {
+                      setOpen(false)
+                      refreshData()
+                    }}
+                  >
+                    <Link href='/employee'>
+                      <Home className='w-4 h-4 mr-2' />
+                      Dashboard
+                    </Link>
+                  </Button>
 
-                  <div className='flex flex-col gap-1'>
-                    <Button
-                      variant='ghost'
-                      asChild
-                      className='justify-start h-10 px-2'
-                      onClick={() => setOpen(false)}
-                    >
-                      <Link href='/employee'>
-                        <Home className='w-4 h-4 mr-2' />
-                        Home
-                      </Link>
-                    </Button>
-
-                    <Button
-                      variant='ghost'
-                      asChild
-                      className='justify-start h-10 px-2'
-                      onClick={() => setOpen(false)}
-                    >
-                      <Link href='/employee'>
-                        <Store className='w-4 h-4 mr-2' />
-                        My Stores
-                      </Link>
-                    </Button>
-
-                    {employeeStores && employeeStores.length > 0 && (
-                      <div className='ml-4 pl-2 border-l mt-2 space-y-1'>
-                        {employeeStores.map((item) => (
-                          <div
-                            key={item.stores.id}
-                            className='flex flex-col gap-1'
-                          >
-                            <span className='text-sm font-medium pt-1'>
-                              {item.stores.name}
-                            </span>
-                            <div className='flex gap-2 ml-1'>
-                              <Button
-                                variant='ghost'
-                                size='sm'
-                                asChild
-                                className='h-8 justify-start text-xs'
-                                onClick={() => setOpen(false)}
+                  {employeeStores && employeeStores.length > 0 && (
+                    <div className='ml-4 pl-2 border-l mt-2 space-y-1'>
+                      {employeeStores.map((item) => (
+                        <div
+                          key={item.stores.id}
+                          className='flex flex-col gap-1'
+                        >
+                          <span className='text-sm font-medium pt-1'>
+                            {item.stores.name}
+                          </span>
+                          <div className='flex gap-2 ml-1'>
+                            <Button
+                              variant='ghost'
+                              size='sm'
+                              asChild
+                              className='h-8 justify-start text-xs'
+                              onClick={() => setOpen(false)}
+                            >
+                              <Link
+                                href={`/employee/store/${item.stores.id}/schedule`}
                               >
-                                <Link
-                                  href={`/employee/store/${item.stores.id}/schedule`}
-                                >
-                                  <Calendar className='w-3 h-3 mr-1.5' />
-                                  Schedule
-                                </Link>
-                              </Button>
-                              <Button
-                                variant='ghost'
-                                size='sm'
-                                asChild
-                                className='h-8 justify-start text-xs'
-                                onClick={() => setOpen(false)}
+                                <Calendar className='w-3 h-3 mr-1.5' />
+                                Schedule
+                              </Link>
+                            </Button>
+                            <Button
+                              variant='ghost'
+                              size='sm'
+                              asChild
+                              className='h-8 justify-start text-xs'
+                              onClick={() => setOpen(false)}
+                            >
+                              <Link
+                                href={`/employee/store/${item.stores.id}/availability`}
                               >
-                                <Link
-                                  href={`/employee/store/${item.stores.id}/availability`}
-                                >
-                                  <Clock className='w-3 h-3 mr-1.5' />
-                                  Availability
-                                </Link>
-                              </Button>
-                            </div>
+                                <Clock className='w-3 h-3 mr-1.5' />
+                                Availability
+                              </Link>
+                            </Button>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-                  <form action={signOut}>
-                    <Button
-                      variant='ghost'
-                      className='w-full justify-start'
-                      type='submit'
-                      onClick={() => setOpen(false)}
-                    >
-                      <LogOut className='w-4 h-4 mr-2' />
-                      Sign Out
-                    </Button>
-                  </form>
+                  <Button
+                    variant='ghost'
+                    className='w-full justify-start text-red-600 hover:text-red-600 hover:bg-red-100'
+                    onClick={() => {
+                      signOut()
+                      setOpen(false)
+                    }}
+                  >
+                    <LogOut className='w-4 h-4 mr-2' />
+                    Sign Out
+                  </Button>
                 </div>
               </SheetContent>
             </Sheet>
           </div>
           <div className='hidden sm:block'>
-            <form action={signOut}>
-              <Button variant='ghost' size='icon' type='submit'>
-                <LogOut className='w-4 h-4' />
-              </Button>
-            </form>
+            <Button
+              variant='ghost'
+              className='text-red-600 hover:text-red-600 hover:bg-red-100'
+              onClick={() => signOut()}
+            >
+              <LogOut className='w-4 h-4 mr-2' />
+              Sign Out
+            </Button>
           </div>
         </div>
       </div>
