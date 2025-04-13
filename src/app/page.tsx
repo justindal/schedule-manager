@@ -36,7 +36,7 @@ export default function Home() {
           <Card className='w-full max-w-[500px]'>
             <CardHeader className='text-center space-y-2'>
               <CardTitle className='text-2xl sm:text-3xl font-bold'>
-                Schedule Manager
+                ShiftTrack
               </CardTitle>
               <CardDescription className='text-lg sm:text-xl'>
                 Streamline your workforce scheduling
