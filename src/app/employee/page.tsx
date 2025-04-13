@@ -23,7 +23,7 @@ interface StoreEmployee {
 }
 
 export default async function EmployeeDashboard() {
-  // @ts-ignore - Next.js headers helper
+  // @ts-expect-error - Next.js headers helper
   headers({ 'Cache-Control': 'no-store' })
 
   const supabase = await createClient()
@@ -57,14 +57,16 @@ export default async function EmployeeDashboard() {
       <Card className='shadow-sm'>
         <CardHeader className='px-4 py-3 sm:py-4'>
           <CardTitle className='text-lg sm:text-xl'>My Stores</CardTitle>
-          <CardDescription>Stores you're currently working at</CardDescription>
+          <CardDescription>
+            Stores you&apos;re currently working at
+          </CardDescription>
         </CardHeader>
         <CardContent className='px-4 py-2 sm:py-4'>
           <div className='space-y-3 sm:space-y-4'>
             {stores?.length === 0 ? (
               <div className='text-center py-6 text-muted-foreground text-sm'>
-                You haven't joined any stores yet. Click the "Join Store" button
-                above to get started.
+                You haven&apos;t joined any stores yet. Click the &quot;Join
+                Store&quot; button above to get started.
               </div>
             ) : (
               stores?.map((record) => (

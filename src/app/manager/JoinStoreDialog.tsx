@@ -163,8 +163,9 @@ export function JoinStoreDialog({ trigger }: Props) {
         <DialogHeader>
           <DialogTitle>Join Store</DialogTitle>
           <DialogDescription>
-            Enter a store code to join. You'll immediately get employee access,
-            and your request for manager access will be sent for approval.
+            Enter a store code to join. You&apos;ll immediately get employee
+            access, and your request for manager access will be sent for
+            approval.
           </DialogDescription>
         </DialogHeader>
         <div className='py-4'>

@@ -128,10 +128,10 @@ export default function JoinStore() {
           <CardHeader>
             <CardTitle>Request Submitted</CardTitle>
             <CardDescription>
-              Your request to join as a manager has been submitted. You'll have
-              employee-level access immediately, but will need approval from an
-              existing manager to gain manager privileges. You will be notified
-              once your request is reviewed.
+              Your request to join as a manager has been submitted. You&apos;ll
+              have employee-level access immediately, but will need approval
+              from an existing manager to gain manager privileges. You will be
+              notified once your request is reviewed.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -152,7 +152,7 @@ export default function JoinStore() {
           <CardDescription>
             Submit a request to join a store as a manager. An existing manager
             will need to approve your request before you gain manager
-            privileges. Until then, you'll have the same access as regular
+            privileges. Until then, you&apos;ll have the same access as regular
             employees.
           </CardDescription>
         </CardHeader>
