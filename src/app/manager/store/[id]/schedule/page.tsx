@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation'
 import { createClientBrowser } from '@/app/utils/supabase/client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   format,
   eachDayOfInterval,
@@ -10,6 +10,8 @@ import {
   endOfWeek,
   addWeeks,
   subWeeks,
+  parseISO,
+  isSameDay,
 } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import {
@@ -21,7 +23,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
-import { AlertCircle } from 'lucide-react'
+import {
+  AlertCircle,
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Plus,
+} from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -37,10 +46,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Calendar as CalendarIcon } from 'lucide-react'
 import { PostgrestError } from '@supabase/supabase-js'
 import { Textarea } from '@/components/ui/textarea'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   Tooltip,
   TooltipContent,
@@ -54,6 +61,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { useToast } from '@/components/ui/use-toast'
+import { Badge } from '@/components/ui/badge'
 
 interface Profile {
   id: string
@@ -102,6 +111,27 @@ interface AvailabilityData {
   end_time?: string
 }
 
+interface ProcessingCell {
+  employeeId: string
+  date: string
+  action: 'save' | 'delete'
+}
+
+interface PendingOperation {
+  type: 'create' | 'update' | 'delete'
+  status: 'pending' | 'success' | 'error'
+  timestamp: number
+  employeeId: string
+  dateString: string
+  data?: any
+}
+
+interface ShiftFormValues {
+  startTime: string
+  endTime: string
+  notes?: string
+}
+
 function calculateTotalHours(shifts: Shift[], employeeId: string): number {
   return shifts
     .filter((shift) => shift.employee_id === employeeId)
@@ -113,12 +143,30 @@ function calculateTotalHours(shifts: Shift[], employeeId: string): number {
     }, 0)
 }
 
+function isCellProcessing(
+  employeeId: string,
+  dateString: string,
+  pendingOps: Record<string, PendingOperation>
+): boolean {
+  return Object.values(pendingOps).some(
+    (op) =>
+      op.employeeId === employeeId &&
+      op.dateString === dateString &&
+      op.status === 'pending'
+  )
+}
+
 function ShiftCell({
   shift,
   date,
   employee,
   viewOnly,
   setEditingShift,
+  pendingOperations,
+  setEditingEmployee,
+  setOpenShiftDialog,
+  setIsUpdate,
+  isShiftLoading,
 }: {
   shift: Shift | undefined
   date: Date
@@ -131,51 +179,134 @@ function ShiftCell({
       shift?: Shift
     } | null
   ) => void
+  pendingOperations: Record<string, PendingOperation>
+  setEditingEmployee: (data: { id: string; name: string } | null) => void
+  setOpenShiftDialog: (open: boolean) => void
+  setIsUpdate: (value: boolean) => void
+  isShiftLoading: (shiftId?: string) => boolean
 }) {
+  const dateString = format(date, 'yyyy-MM-dd')
+  const isLoading = shift && isShiftLoading(shift.id)
+
+  const operationKey = Object.keys(pendingOperations).find((key) => {
+    const op = pendingOperations[key]
+    return op.employeeId === employee.id && op.dateString === dateString
+  })
+
+  const pendingOp = operationKey ? pendingOperations[operationKey] : null
+  const isProcessing = pendingOp?.status === 'pending'
+  const operationType = pendingOp?.type
+
+  const getTimeDisplay = () => {
+    if (shift) {
+      return (
+        format(new Date(shift.start_time), 'h:mm a') +
+        ' - ' +
+        format(new Date(shift.end_time), 'h:mm a')
+      )
+    } else if (pendingOp?.data?.startTime && pendingOp?.data?.endTime) {
+      return pendingOp.data.startTime + ' - ' + pendingOp.data.endTime
+    } else {
+      return '9:00 am - 5:00 pm'
+    }
+  }
+
   return (
     <TableCell className='text-center p-2 h-16'>
-      {shift ? (
-        <Button
-          variant='outline'
-          size='sm'
-          onClick={() =>
-            !viewOnly &&
-            setEditingShift({
-              employeeId: employee.id,
-              date,
-              shift,
-            })
-          }
-          disabled={viewOnly}
-          className='text-xs h-auto py-1 px-2 w-full'
-        >
-          <div className='text-sm'>
-            {format(new Date(shift.start_time), 'h:mm a')} -{' '}
-            {format(new Date(shift.end_time), 'h:mm a')}
-            {shift.notes && (
-              <div className='text-xs text-muted-foreground truncate max-w-[120px]'>
-                {shift.notes}
-              </div>
-            )}
+      {isProcessing && operationType === 'delete' ? (
+        <div className='w-full h-full flex items-center justify-center'>
+          <div className='h-12 w-full bg-red-50 border border-red-100 animate-pulse rounded-md flex items-center justify-center'>
+            <div className='text-xs text-muted-foreground opacity-70'>
+              {shift ? getTimeDisplay() : 'Deleting...'}
+            </div>
           </div>
-        </Button>
+        </div>
+      ) : isProcessing && operationType === 'create' ? (
+        <div className='w-full h-full flex items-center justify-center'>
+          <div className='h-12 w-full bg-blue-50 border border-blue-100 animate-pulse rounded-md flex items-center justify-center'>
+            <div className='text-xs text-muted-foreground opacity-70'>
+              {getTimeDisplay()}
+            </div>
+          </div>
+        </div>
+      ) : isProcessing && operationType === 'update' ? (
+        <div className='w-full h-full flex items-center justify-center'>
+          <div className='h-12 w-full bg-amber-50 border border-amber-100 animate-pulse rounded-md flex items-center justify-center'>
+            <div className='text-xs text-muted-foreground opacity-70'>
+              {getTimeDisplay()}
+            </div>
+          </div>
+        </div>
+      ) : shift ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => {
+                  if (!viewOnly) {
+                    setEditingShift({
+                      employeeId: employee.id,
+                      date,
+                      shift,
+                    })
+                    setEditingEmployee({
+                      id: employee.id,
+                      name: employee.full_name,
+                    })
+                    setOpenShiftDialog(true)
+                    setIsUpdate(true)
+                  }
+                }}
+                disabled={viewOnly || isProcessing || isLoading}
+                className='text-xs h-auto py-1 px-2 w-full'
+              >
+                <div className='text-sm'>
+                  {isLoading ? (
+                    <span className='animate-pulse'>Loading...</span>
+                  ) : (
+                    <div className='flex items-center gap-1 justify-center'>
+                      <span>{getTimeDisplay()}</span>
+                      {shift.notes && (
+                        <FileText className='h-3 w-3 text-muted-foreground' />
+                      )}
+                    </div>
+                  )}
+                </div>
+              </Button>
+            </TooltipTrigger>
+            {shift.notes && (
+              <TooltipContent>
+                <p className='max-w-xs font-normal break-words'>
+                  {shift.notes}
+                </p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       ) : (
         <Button
           variant='ghost'
           size='sm'
           className='h-10 w-full border border-dashed border-gray-300 hover:border-gray-400 bg-gray-50'
-          onClick={() =>
-            !viewOnly &&
-            setEditingShift({
-              employeeId: employee.id,
-              date,
-            })
-          }
-          disabled={viewOnly}
+          onClick={() => {
+            if (!viewOnly) {
+              setEditingShift({
+                employeeId: employee.id,
+                date,
+              })
+              setEditingEmployee({
+                id: employee.id,
+                name: employee.full_name,
+              })
+              setOpenShiftDialog(true)
+              setIsUpdate(false)
+            }
+          }}
+          disabled={viewOnly || isProcessing}
         >
-          <span className='text-xs text-muted-foreground'>
-            {viewOnly ? '—' : 'Add'}
-          </span>
+          <Plus className='h-4 w-4 text-muted-foreground' />
         </Button>
       )}
     </TableCell>
@@ -262,10 +393,12 @@ function ScheduleSkeleton() {
 export default function SchedulePage() {
   const params = useParams()
   const storeId = params.id as string
+  const { toast } = useToast()
   const [currentWeek, setCurrentWeek] = useState(new Date())
   const [employees, setEmployees] = useState<Employee[]>([])
   const [shifts, setShifts] = useState<Shift[]>([])
   const [loading, setLoading] = useState(true)
+  const [submitLoading, setSubmitLoading] = useState(false)
   const [editingShift, setEditingShift] = useState<{
     employeeId: string
     date: Date
@@ -278,6 +411,18 @@ export default function SchedulePage() {
   const [managerStatus, setManagerStatus] = useState<string | null>(null)
   const [viewOnly, setViewOnly] = useState(false)
   const [storeName, setStoreName] = useState<string>('')
+  const [processingCells, setProcessingCells] = useState<ProcessingCell[]>([])
+  const processingTimeouts = useRef<Record<string, NodeJS.Timeout>>({})
+  const [pendingOperations, setPendingOperations] = useState<
+    Record<string, PendingOperation>
+  >({})
+  const [editingEmployee, setEditingEmployee] = useState<{
+    id: string
+    name: string
+  } | null>(null)
+  const [openShiftDialog, setOpenShiftDialog] = useState(false)
+  const [loadingShiftIds, setLoadingShiftIds] = useState<Set<string>>(new Set())
+  const [isUpdate, setIsUpdate] = useState(false)
 
   const weekDates = useMemo(
     () =>
@@ -288,12 +433,28 @@ export default function SchedulePage() {
     [currentWeek]
   )
 
-  useEffect(() => {
-    fetchData()
-    checkManagerStatus()
-  }, [currentWeek, storeId, fetchData, checkManagerStatus])
+  function getOperationKey(
+    employeeId: string,
+    date: string,
+    type: 'create' | 'update' | 'delete'
+  ) {
+    return `${employeeId}:${date}:${type}:${Date.now()}`
+  }
 
-  async function checkManagerStatus() {
+  const cleanupOldOperations = useCallback(() => {
+    const now = Date.now()
+    setPendingOperations((prev) => {
+      const newOperations = { ...prev }
+      Object.keys(newOperations).forEach((key) => {
+        if (now - newOperations[key].timestamp > 30000) {
+          delete newOperations[key]
+        }
+      })
+      return newOperations
+    })
+  }, [setPendingOperations])
+
+  const checkManagerStatus = useCallback(async () => {
     const { data: user } = await supabase.auth.getUser()
     if (!user.user) return
 
@@ -306,98 +467,7 @@ export default function SchedulePage() {
 
     setManagerStatus(managerData?.status || null)
     setViewOnly(managerData?.status !== 'approved')
-  }
-
-  async function fetchData() {
-    try {
-      const { data: storeData, error: storeError } = await supabase
-        .from('stores')
-        .select('name')
-        .eq('id', storeId)
-        .single()
-
-      if (storeError) throw storeError
-      setStoreName(storeData?.name || '')
-
-      const { data: employeeData, error: employeeError } = (await supabase
-        .from('store_employees')
-        .select(
-          `
-          employee_id,
-          profiles!inner (
-            id,
-            full_name
-          )
-        `
-        )
-        .eq('store_id', storeId)) as {
-        data: EmployeeJoinResult[] | null
-        error: PostgrestError | null
-      }
-
-      const { data: managerData, error: managerError } = (await supabase
-        .from('store_managers')
-        .select(
-          `
-          manager_id,
-          profiles!inner (
-            id,
-            full_name
-          )
-        `
-        )
-        .eq('store_id', storeId)
-        .eq('status', 'approved')) as {
-        data: ManagerJoinResult[] | null
-        error: PostgrestError | null
-      }
-
-      if (employeeError) throw employeeError
-      if (managerError) throw managerError
-
-      const allStaff = [
-        ...(employeeData?.map((e) => ({
-          id: e.employee_id,
-          full_name: e.profiles.full_name,
-          is_manager: false,
-        })) ?? []),
-        ...(managerData?.map((m) => ({
-          id: m.manager_id,
-          full_name: m.profiles.full_name,
-          is_manager: true,
-        })) ?? []),
-      ] as Employee[]
-
-      const uniqueStaff = Array.from(
-        new Map(allStaff.map((item) => [item.id, item])).values()
-      )
-
-      setEmployees(uniqueStaff)
-
-      const currentSchedule = await getOrCreateSchedule()
-
-      const { data: shiftData, error: shiftError } = await supabase
-        .from('shifts')
-        .select('*')
-        .eq('schedule_id', currentSchedule.id)
-
-      if (shiftError) throw shiftError
-      setShifts(shiftData ?? [])
-
-      const { data: availabilityData } = await supabase
-        .from('availability')
-        .select('*')
-        .eq('store_id', storeId)
-        .gte('date', format(weekDates[0], 'yyyy-MM-dd'))
-        .lte('date', format(weekDates[6], 'yyyy-MM-dd'))
-
-      setAvailabilities(availabilityData ?? [])
-    } catch (error) {
-      console.error('Error fetching data:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [supabase, storeId])
 
   async function getOrCreateSchedule() {
     const weekStart = format(startOfWeek(currentWeek), 'yyyy-MM-dd')
@@ -428,59 +498,380 @@ export default function SchedulePage() {
     return newSchedule
   }
 
+  const fetchData = useCallback(async () => {
+    try {
+      if (!storeName) {
+        const { data: storeData, error: storeError } = await supabase
+          .from('stores')
+          .select('name')
+          .eq('id', storeId)
+          .single()
+
+        if (storeError) throw storeError
+        setStoreName(storeData?.name || '')
+      }
+
+      if (employees.length === 0) {
+        const { data: employeeData, error: employeeError } = (await supabase
+          .from('store_employees')
+          .select(
+            `
+            employee_id,
+            profiles!inner (
+              id,
+              full_name
+            )
+          `
+          )
+          .eq('store_id', storeId)) as {
+          data: EmployeeJoinResult[] | null
+          error: PostgrestError | null
+        }
+
+        const { data: managerData, error: managerError } = (await supabase
+          .from('store_managers')
+          .select(
+            `
+            manager_id,
+            profiles!inner (
+              id,
+              full_name
+            )
+          `
+          )
+          .eq('store_id', storeId)
+          .eq('status', 'approved')) as {
+          data: ManagerJoinResult[] | null
+          error: PostgrestError | null
+        }
+
+        if (employeeError) throw employeeError
+        if (managerError) throw managerError
+
+        const allStaff = [
+          ...(employeeData?.map((e) => ({
+            id: e.employee_id,
+            full_name: e.profiles.full_name,
+            is_manager: false,
+          })) ?? []),
+          ...(managerData?.map((m) => ({
+            id: m.manager_id,
+            full_name: m.profiles.full_name,
+            is_manager: true,
+          })) ?? []),
+        ] as Employee[]
+
+        const uniqueStaff = Array.from(
+          new Map(allStaff.map((item) => [item.id, item])).values()
+        ).sort((a, b) => a.full_name.localeCompare(b.full_name))
+
+        setEmployees(uniqueStaff)
+      }
+
+      const currentSchedule = await getOrCreateSchedule()
+
+      const { data: shiftData, error: shiftError } = await supabase
+        .from('shifts')
+        .select('*')
+        .eq('schedule_id', currentSchedule.id)
+
+      if (shiftError) throw shiftError
+      setShifts(shiftData ?? [])
+
+      const { data: availabilityData } = await supabase
+        .from('availability')
+        .select('*')
+        .eq('store_id', storeId)
+        .gte('date', format(weekDates[0], 'yyyy-MM-dd'))
+        .lte('date', format(weekDates[6], 'yyyy-MM-dd'))
+
+      setAvailabilities(availabilityData ?? [])
+    } catch (error) {
+      console.error(
+        'Error fetching data:',
+        error instanceof Error
+          ? { message: error.message, stack: error.stack }
+          : typeof error === 'object' && error !== null
+          ? JSON.stringify(error)
+          : String(error),
+        {
+          storeId,
+          weekDates: weekDates.map((d) => format(d, 'yyyy-MM-dd')),
+        }
+      )
+
+      toast({
+        variant: 'destructive',
+        title: 'Error loading schedule data',
+        description: 'Please try refreshing the page',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [supabase, storeId, storeName, employees.length, weekDates, toast])
+
+  const isShiftLoading = useCallback(
+    (shiftId?: string) => {
+      if (!shiftId) return false
+      return loadingShiftIds.has(shiftId)
+    },
+    [loadingShiftIds]
+  )
+
+  const setShiftLoading = useCallback((shiftId: string, loading: boolean) => {
+    setLoadingShiftIds((prev) => {
+      const newSet = new Set(prev)
+      if (loading) {
+        newSet.add(shiftId)
+      } else {
+        newSet.delete(shiftId)
+      }
+      return newSet
+    })
+  }, [])
+
+  const formatShiftTime = useCallback((timeString: string) => {
+    const date = new Date(timeString)
+    return format(date, 'h:mm a')
+  }, [])
+
+  const employeeRows = useMemo(
+    () =>
+      employees.map((employee) => (
+        <TableRow key={employee.id}>
+          <TableCell className='font-medium sticky left-0 bg-background z-10'>
+            {employee.full_name}
+          </TableCell>
+          {weekDates.map((date) => {
+            const shift = shifts.find(
+              (s) =>
+                s.employee_id === employee.id &&
+                format(new Date(s.start_time), 'yyyy-MM-dd') ===
+                  format(date, 'yyyy-MM-dd')
+            )
+            return (
+              <ShiftCell
+                key={date.toString()}
+                shift={shift}
+                date={date}
+                employee={employee}
+                viewOnly={viewOnly}
+                setEditingShift={setEditingShift}
+                pendingOperations={pendingOperations}
+                setEditingEmployee={setEditingEmployee}
+                setOpenShiftDialog={setOpenShiftDialog}
+                setIsUpdate={setIsUpdate}
+                isShiftLoading={isShiftLoading}
+              />
+            )
+          })}
+          <TableCell className='text-center font-medium'>
+            {calculateTotalHours(shifts, employee.id).toFixed(2)}
+          </TableCell>
+        </TableRow>
+      )),
+    [employees, weekDates, shifts, viewOnly, pendingOperations, isShiftLoading]
+  )
+
+  useEffect(() => {
+    fetchData()
+    checkManagerStatus()
+  }, [currentWeek, storeId, fetchData, checkManagerStatus])
+
+  useEffect(() => {
+    return () => {
+      Object.values(processingTimeouts.current).forEach(clearTimeout)
+    }
+  }, [])
+
+  useEffect(() => {
+    const createIndex = async () => {
+      try {
+        const supabase = createClientBrowser()
+        await supabase
+          .rpc('execute_sql', {
+            sql: 'CREATE INDEX IF NOT EXISTS shifts_schedule_id_idx ON shifts (schedule_id)',
+          })
+          .then(() => {
+            console.log('Index created or already exists')
+          })
+      } catch (error) {
+        console.log(
+          'Error creating index:',
+          error instanceof Error ? error.message : String(error)
+        )
+      }
+    }
+    createIndex()
+  }, [])
+
+  useEffect(() => {
+    const interval = setInterval(cleanupOldOperations, 10000)
+    return () => clearInterval(interval)
+  }, [cleanupOldOperations])
+
+  function removeProcessingCell(employeeId: string, date: string) {
+    setProcessingCells((prev) =>
+      prev.filter(
+        (cell) => !(cell.employeeId === employeeId && cell.date === date)
+      )
+    )
+
+    const key = `${employeeId}-${date}`
+    if (processingTimeouts.current[key]) {
+      clearTimeout(processingTimeouts.current[key])
+      delete processingTimeouts.current[key]
+    }
+  }
+
+  function setProcessingWithTimeout(
+    employeeId: string,
+    date: string,
+    action: 'save' | 'delete'
+  ) {
+    setProcessingCells((prev) => [
+      ...prev,
+      {
+        employeeId,
+        date,
+        action,
+      },
+    ])
+
+    const key = `${employeeId}-${date}`
+    if (processingTimeouts.current[key]) {
+      clearTimeout(processingTimeouts.current[key])
+    }
+
+    processingTimeouts.current[key] = setTimeout(() => {
+      removeProcessingCell(employeeId, date)
+    }, 3000)
+  }
+
   async function handleShiftSave(formData: FormData) {
     if (!editingShift || !schedule) return
 
-    const startDate = new Date(editingShift.date)
-    const endDate = new Date(editingShift.date)
+    setSubmitLoading(true)
 
-    const [startHours, startMinutes] = (
-      formData.get('startTime') as string
-    ).split(':')
-    const [endHours, endMinutes] = (formData.get('endTime') as string).split(
-      ':'
-    )
-
-    startDate.setHours(parseInt(startHours), parseInt(startMinutes), 0, 0)
-    endDate.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0)
+    const operationId = editingShift.shift?.id || `new-${Date.now()}`
+    setShiftLoading(operationId, true)
 
     try {
-      if (editingShift.shift?.id) {
-        await supabase
+      setOpenShiftDialog(false)
+
+      const startTime = formData.get('startTime') as string
+      const endTime = formData.get('endTime') as string
+      const notes = formData.get('notes') as string
+
+      const dateString = format(editingShift.date, 'yyyy-MM-dd')
+      const employeeId = editingShift.employeeId
+      const employeeName =
+        employees.find((e) => e.id === employeeId)?.full_name || 'Employee'
+      const isNewShift = !editingShift.shift
+
+      setProcessingWithTimeout(employeeId, dateString, 'save')
+
+      const localDate = new Date(dateString)
+      const tzOffset = localDate.getTimezoneOffset() * 60000
+
+      const startDateTime = new Date(`${dateString}T${startTime}:00`)
+      const endDateTime = new Date(`${dateString}T${endTime}:00`)
+
+      const startISOString = startDateTime.toISOString()
+      const endISOString = endDateTime.toISOString()
+
+      let result
+      if (isNewShift) {
+        result = await supabase
+          .from('shifts')
+          .insert({
+            schedule_id: schedule.id,
+            employee_id: employeeId,
+            start_time: startISOString,
+            end_time: endISOString,
+            notes: notes || null,
+          })
+          .select('id')
+      } else if (editingShift.shift) {
+        result = await supabase
           .from('shifts')
           .update({
-            start_time: startDate.toISOString(),
-            end_time: endDate.toISOString(),
-            notes: formData.get('notes'),
+            start_time: startISOString,
+            end_time: endISOString,
+            notes: notes || null,
           })
           .eq('id', editingShift.shift.id)
-      } else {
-        await supabase.from('shifts').insert({
-          schedule_id: schedule.id,
-          employee_id: editingShift.employeeId,
-          start_time: startDate.toISOString(),
-          end_time: endDate.toISOString(),
-          notes: formData.get('notes'),
-        })
+          .select('id')
       }
 
+      toast({
+        title: isNewShift ? 'Shift added' : 'Shift updated',
+        description: `${employeeName} on ${format(
+          editingShift.date,
+          'EEE, MMM d'
+        )}`,
+      })
+
       await fetchData()
-      setEditingShift(null)
     } catch (error) {
       console.error('Error saving shift:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Error saving shift',
+        description: 'Please try again',
+      })
+    } finally {
+      setTimeout(() => {
+        setSubmitLoading(false)
+        setShiftLoading(operationId, false)
+        setEditingShift(null)
+        setEditingEmployee(null)
+      }, 300)
     }
   }
 
   async function handleShiftDelete() {
-    if (!editingShift?.shift?.id) return
+    if (!editingShift?.shift || !schedule) return
+
+    setSubmitLoading(true)
+    const shiftId = editingShift.shift.id
+    setShiftLoading(shiftId, true)
 
     try {
-      await supabase.from('shifts').delete().eq('id', editingShift.shift.id)
+      setOpenShiftDialog(false)
+
+      const dateString = format(editingShift.date, 'yyyy-MM-dd')
+      const employeeId = editingShift.employeeId
+      const employeeName =
+        employees.find((e) => e.id === employeeId)?.full_name || 'Employee'
+
+      setProcessingWithTimeout(employeeId, dateString, 'delete')
+
+      await supabase.from('shifts').delete().eq('id', shiftId)
+
+      toast({
+        title: 'Shift deleted',
+        description: `${employeeName} on ${format(
+          editingShift.date,
+          'EEE, MMM d'
+        )}`,
+      })
 
       await fetchData()
-      setEditingShift(null)
     } catch (error) {
       console.error('Error deleting shift:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Error deleting shift',
+        description: 'Please try again',
+      })
+    } finally {
+      setTimeout(() => {
+        setSubmitLoading(false)
+        setShiftLoading(shiftId, false)
+        setEditingShift(null)
+        setEditingEmployee(null)
+      }, 300)
     }
   }
 
@@ -655,56 +1046,35 @@ export default function SchedulePage() {
                     </TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
-                  {employees.map((employee) => (
-                    <TableRow key={employee.id}>
-                      <TableCell className='font-medium sticky left-0 bg-background z-10'>
-                        {employee.full_name}
-                      </TableCell>
-                      {weekDates.map((date) => {
-                        const shift = shifts.find(
-                          (s) =>
-                            s.employee_id === employee.id &&
-                            format(new Date(s.start_time), 'yyyy-MM-dd') ===
-                              format(date, 'yyyy-MM-dd')
-                        )
-                        return (
-                          <ShiftCell
-                            key={date.toString()}
-                            shift={shift}
-                            date={date}
-                            employee={employee}
-                            viewOnly={viewOnly}
-                            setEditingShift={setEditingShift}
-                          />
-                        )
-                      })}
-                      <TableCell className='text-center font-medium'>
-                        {calculateTotalHours(shifts, employee.id).toFixed(2)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
+                <TableBody>{employeeRows}</TableBody>
               </Table>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <Dialog open={!!editingShift} onOpenChange={() => setEditingShift(null)}>
+      <Dialog
+        open={openShiftDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setOpenShiftDialog(false)
+            if (loadingShiftIds.size === 0) {
+              setEditingShift(null)
+              setEditingEmployee(null)
+            }
+          }
+        }}
+      >
         <DialogContent className='sm:max-w-[425px] max-w-[95vw]'>
           <DialogHeader>
             <DialogTitle>
               {editingShift?.shift ? 'Edit Shift' : 'Add Shift'}
               {viewOnly && ' (View Only)'}
             </DialogTitle>
-            {editingShift && (
+            {editingShift && editingEmployee && (
               <DialogDescription>
                 {format(editingShift.date, 'EEEE, MMMM d, yyyy')} -{' '}
-                {
-                  employees.find((e) => e.id === editingShift.employeeId)
-                    ?.full_name
-                }
+                {editingEmployee.name}
                 {viewOnly &&
                   ' - You cannot make changes due to your access level.'}
               </DialogDescription>
@@ -770,19 +1140,31 @@ export default function SchedulePage() {
                   variant='destructive'
                   className='w-full sm:w-auto order-1 sm:order-none'
                   onClick={handleShiftDelete}
+                  disabled={submitLoading || viewOnly}
                 >
-                  Delete Shift
+                  {submitLoading ? 'Deleting...' : 'Delete Shift'}
                 </Button>
               )}
               <div className='flex justify-end gap-2 w-full sm:w-auto'>
                 <Button
                   type='button'
                   variant='outline'
-                  onClick={() => setEditingShift(null)}
+                  onClick={() => {
+                    setOpenShiftDialog(false)
+                    if (loadingShiftIds.size === 0) {
+                      setEditingShift(null)
+                      setEditingEmployee(null)
+                    }
+                  }}
+                  disabled={submitLoading}
                 >
                   {viewOnly ? 'Close' : 'Cancel'}
                 </Button>
-                {!viewOnly && <Button type='submit'>Save</Button>}
+                {!viewOnly && (
+                  <Button type='submit' disabled={submitLoading}>
+                    {submitLoading ? 'Saving...' : 'Save'}
+                  </Button>
+                )}
               </div>
             </DialogFooter>
           </form>
