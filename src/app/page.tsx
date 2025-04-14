@@ -18,7 +18,7 @@ export default function Home() {
         <div className='max-w-7xl mx-auto flex justify-between items-center'>
           <div className='flex items-center gap-2'>
             <CalendarDays className='h-6 w-6 text-primary' />
-            <span className='font-bold text-xl'>Schedule Manager</span>
+            <span className='font-bold text-xl'>ShiftTrack</span>
           </div>
           <div className='flex gap-4'>
             <Link href='/contact'>Contact</Link>
