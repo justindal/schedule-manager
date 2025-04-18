@@ -30,6 +30,7 @@ import {
   ChevronRight,
   FileText,
   Plus,
+  RefreshCcw,
 } from 'lucide-react'
 import {
   Dialog,
@@ -123,7 +124,7 @@ interface PendingOperation {
   timestamp: number
   employeeId: string
   dateString: string
-  data?: any
+  data?: ShiftFormValues
 }
 
 interface ShiftFormValues {
@@ -205,9 +206,20 @@ function ShiftCell({
         format(new Date(shift.end_time), 'h:mm a')
       )
     } else if (pendingOp?.data?.startTime && pendingOp?.data?.endTime) {
-      return pendingOp.data.startTime + ' - ' + pendingOp.data.endTime
+      const formatTime = (time24: string) => {
+        const [hours, minutes] = time24.split(':').map(Number)
+        const period = hours >= 12 ? 'PM' : 'AM'
+        const hours12 = hours % 12 || 12
+        return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`
+      }
+
+      return (
+        formatTime(pendingOp.data.startTime) +
+        ' - ' +
+        formatTime(pendingOp.data.endTime)
+      )
     } else {
-      return '9:00 am - 5:00 pm'
+      return '9:00 AM - 5:00 PM'
     }
   }
 
@@ -500,6 +512,16 @@ export default function SchedulePage() {
 
   const fetchData = useCallback(async () => {
     try {
+      const { data: user } = await supabase.auth.getUser()
+      if (!user?.user) {
+        toast({
+          variant: 'destructive',
+          title: 'Authentication Error',
+          description: 'You must be logged in to view this page',
+        })
+        return
+      }
+
       if (!storeName) {
         const { data: storeData, error: storeError } = await supabase
           .from('stores')
@@ -578,12 +600,18 @@ export default function SchedulePage() {
       if (shiftError) throw shiftError
       setShifts(shiftData ?? [])
 
-      const { data: availabilityData } = await supabase
+      let availabilityQuery = supabase
         .from('availability')
         .select('*')
         .eq('store_id', storeId)
         .gte('date', format(weekDates[0], 'yyyy-MM-dd'))
         .lte('date', format(weekDates[6], 'yyyy-MM-dd'))
+
+      if (managerStatus !== 'approved') {
+        availabilityQuery = availabilityQuery.eq('user_id', user.user.id)
+      }
+
+      const { data: availabilityData } = await availabilityQuery
 
       setAvailabilities(availabilityData ?? [])
     } catch (error) {
@@ -608,7 +636,15 @@ export default function SchedulePage() {
     } finally {
       setLoading(false)
     }
-  }, [supabase, storeId, storeName, employees.length, weekDates, toast])
+  }, [
+    supabase,
+    storeId,
+    storeName,
+    employees.length,
+    weekDates,
+    toast,
+    managerStatus,
+  ])
 
   const isShiftLoading = useCallback(
     (shiftId?: string) => {
@@ -938,7 +974,16 @@ export default function SchedulePage() {
         </div>
       </div>
 
-      <div className='flex justify-end'>
+      <div className='flex justify-end gap-2'>
+        <Button
+          variant='outline'
+          size='sm'
+          onClick={() => fetchData()}
+          className='flex items-center gap-1'
+        >
+          <RefreshCcw className='h-3.5 w-3.5' />
+          Refresh
+        </Button>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -977,27 +1022,32 @@ export default function SchedulePage() {
                     </h5>
                     {employeeAvailabilities.length > 0 ? (
                       <div className='pl-4 space-y-1'>
-                        {employeeAvailabilities.map((avail) => (
-                          <div key={avail.id} className='text-sm'>
-                            {format(new Date(avail.date), 'EEE MMM d')}:{' '}
-                            {avail.status === 'available' &&
-                            avail.start_time ? (
-                              <span className='text-green-600'>
-                                {format(
-                                  new Date(`2000-01-01T${avail.start_time}`),
-                                  'h:mm a'
-                                )}{' '}
-                                -{' '}
-                                {format(
-                                  new Date(`2000-01-01T${avail.end_time}`),
-                                  'h:mm a'
-                                )}
-                              </span>
-                            ) : (
-                              <span className='text-red-600'>Unavailable</span>
-                            )}
-                          </div>
-                        ))}
+                        {employeeAvailabilities.map((avail) => {
+                          const availDate = parseISO(avail.date)
+                          return (
+                            <div key={avail.id} className='text-sm'>
+                              {format(availDate, 'EEE MMM d')}:{' '}
+                              {avail.status === 'available' &&
+                              avail.start_time ? (
+                                <span className='text-green-600'>
+                                  {format(
+                                    new Date(`2000-01-01T${avail.start_time}`),
+                                    'h:mm a'
+                                  )}{' '}
+                                  -{' '}
+                                  {format(
+                                    new Date(`2000-01-01T${avail.end_time}`),
+                                    'h:mm a'
+                                  )}
+                                </span>
+                              ) : (
+                                <span className='text-red-600'>
+                                  Unavailable
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     ) : (
                       <div className='pl-4 text-sm text-muted-foreground'>
@@ -1013,9 +1063,20 @@ export default function SchedulePage() {
       )}
 
       <Card>
-        <CardHeader className='py-4'>
-          <CardTitle>Weekly Schedule</CardTitle>
-          <CardDescription>View all shifts for {storeName}</CardDescription>
+        <CardHeader className='py-4 flex flex-row items-center justify-between'>
+          <div>
+            <CardTitle>Weekly Schedule</CardTitle>
+            <CardDescription>View all shifts for {storeName}</CardDescription>
+          </div>
+          <Button
+            variant='ghost'
+            size='sm'
+            onClick={() => fetchData()}
+            className='flex items-center gap-1'
+          >
+            <RefreshCcw className='h-3.5 w-3.5' />
+            Refresh
+          </Button>
         </CardHeader>
         <CardContent className='p-0'>
           <div className='overflow-x-auto'>
@@ -1104,6 +1165,11 @@ export default function SchedulePage() {
                   }
                   disabled={viewOnly}
                 />
+                {editingShift?.shift?.start_time && (
+                  <p className='text-xs text-muted-foreground'>
+                    {format(new Date(editingShift.shift.start_time), 'h:mm a')}
+                  </p>
+                )}
               </div>
               <div className='space-y-2'>
                 <Label htmlFor='endTime'>End Time</Label>
@@ -1119,6 +1185,11 @@ export default function SchedulePage() {
                   }
                   disabled={viewOnly}
                 />
+                {editingShift?.shift?.end_time && (
+                  <p className='text-xs text-muted-foreground'>
+                    {format(new Date(editingShift.shift.end_time), 'h:mm a')}
+                  </p>
+                )}
               </div>
             </div>
             <div className='space-y-2'>
