@@ -15,6 +15,7 @@ import Link from 'next/link'
 import { Shield } from 'lucide-react'
 import { login } from '@/app/actions/auth/login'
 import { useState } from 'react'
+import { AppleSignInButton } from '@/components/ui/apple-sign-in-button'
 
 export default function ManagerLogin() {
   const [error, setError] = useState<string | null>(null)
@@ -63,10 +64,10 @@ export default function ManagerLogin() {
 
             <div className='flex justify-end'>
               <Link
-                href='/forgot-password'
+                href='/reset-password'
                 className='text-sm text-primary hover:underline'
               >
-                Forgot password?
+                Reset password
               </Link>
             </div>
           </CardContent>
@@ -75,6 +76,20 @@ export default function ManagerLogin() {
             <Button type='submit' className='w-full' size='lg'>
               Sign In
             </Button>
+
+            <div className='relative w-full flex items-center justify-center my-2'>
+              <div className='absolute inset-0 flex items-center'>
+                <div className='w-full border-t border-gray-300'></div>
+              </div>
+              <div className='relative flex justify-center text-xs uppercase'>
+                <span className='px-2 bg-white text-muted-foreground'>
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            <AppleSignInButton role='manager' />
+
             <div className='flex flex-col items-center gap-2 text-sm text-muted-foreground'>
               <p>
                 Don&apos;t have an account?{' '}
