@@ -33,6 +33,8 @@ import {
   CardContent,
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useToast } from '@/components/ui/use-toast'
+import { Badge } from '@/components/ui/badge'
 
 enum AvailabilityStatus {
   Available = 'available',
@@ -131,9 +133,24 @@ export default function AvailabilityPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [storeName, setStoreName] = useState('')
+  const { toast } = useToast()
 
   const prevDate = () => setSelectedDate((prev) => subDays(prev, 1))
   const nextDate = () => setSelectedDate((prev) => addDays(prev, 1))
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const { data } = await supabase.auth.getUser()
+        setUser(data.user)
+      } catch (err) {
+        setError('Error authenticating user')
+        console.error('Auth error:', err)
+      }
+    }
+
+    fetchUser()
+  }, [supabase])
 
   const isValidTimeRange = (start: string, end: string) => {
     if (!start || !end) return false
@@ -148,7 +165,7 @@ export default function AvailabilityPage() {
 
   const isDateAlreadySet = (selectedDate: Date) => {
     const formattedDate = format(selectedDate, 'yyyy-MM-dd')
-    return availabilities.some((a) => a.date === formattedDate)
+    return availabilities.find((a) => a.date === formattedDate)
   }
 
   const fetchAvailability = useCallback(async () => {
@@ -179,6 +196,8 @@ export default function AvailabilityPage() {
   useEffect(() => {
     const init = async () => {
       try {
+        if (!user) return
+
         const { data: storeData, error: storeError } = await supabase
           .from('stores')
           .select('name')
@@ -195,12 +214,32 @@ export default function AvailabilityPage() {
       } catch (error) {
         setError(error instanceof Error ? error.message : 'Failed to load data')
       } finally {
-        setLoading(false)
+        if (user || error) {
+          setLoading(false)
+        }
       }
     }
 
     init()
-  }, [storeId, supabase, fetchAvailability])
+  }, [storeId, supabase, fetchAvailability, user, error])
+
+  useEffect(() => {
+    const existingAvailability = isDateAlreadySet(selectedDate)
+
+    if (existingAvailability) {
+      if (
+        existingAvailability.status === 'available' &&
+        existingAvailability.start_time &&
+        existingAvailability.end_time
+      ) {
+        setStartTime(existingAvailability.start_time.slice(0, 5))
+        setEndTime(existingAvailability.end_time.slice(0, 5))
+      }
+    } else {
+      setStartTime('09:00')
+      setEndTime('17:00')
+    }
+  }, [selectedDate])
 
   if (loading) {
     return <AvailabilitySkeleton />
@@ -218,13 +257,6 @@ export default function AvailabilityPage() {
       return
     }
 
-    if (isDateAlreadySet(selectedDate)) {
-      setError(
-        'Availability already set for this date. Please delete existing availability first.'
-      )
-      return
-    }
-
     if (startTime && endTime && !isValidTimeRange(startTime, endTime)) {
       setError('End time must be after start time')
       return
@@ -232,21 +264,41 @@ export default function AvailabilityPage() {
 
     try {
       setLoading(true)
-      const { error: saveError } = await supabase.from('availability').insert({
-        store_id: storeId,
-        user_id: user.id,
-        date: format(selectedDate, 'yyyy-MM-dd'),
-        start_time: startTime || null,
-        end_time: endTime || null,
-        status:
-          startTime && endTime
-            ? AvailabilityStatus.Available
-            : AvailabilityStatus.Unavailable,
-      })
 
-      if (saveError) {
-        setError(saveError.message)
-        return
+      const formattedDate = format(selectedDate, 'yyyy-MM-dd')
+      const existingAvailability = isDateAlreadySet(selectedDate)
+      const isUpdate = !!existingAvailability
+
+      if (existingAvailability) {
+        const { error: updateError } = await supabase
+          .from('availability')
+          .update({
+            start_time: startTime || null,
+            end_time: endTime || null,
+            status:
+              startTime && endTime
+                ? AvailabilityStatus.Available
+                : AvailabilityStatus.Unavailable,
+          })
+          .eq('id', existingAvailability.id)
+
+        if (updateError) throw updateError
+      } else {
+        const { error: insertError } = await supabase
+          .from('availability')
+          .insert({
+            store_id: storeId,
+            user_id: user.id,
+            date: formattedDate,
+            start_time: startTime || null,
+            end_time: endTime || null,
+            status:
+              startTime && endTime
+                ? AvailabilityStatus.Available
+                : AvailabilityStatus.Unavailable,
+          })
+
+        if (insertError) throw insertError
       }
 
       await fetchAvailability()
@@ -254,10 +306,27 @@ export default function AvailabilityPage() {
       setStartTime('09:00')
       setEndTime('17:00')
       setOpen(false)
+
+      toast({
+        title: isUpdate ? 'Availability updated' : 'Availability set',
+        description: `Your availability for ${format(
+          selectedDate,
+          'EEEE, MMMM d'
+        )} has been ${isUpdate ? 'updated' : 'set'}.`,
+      })
     } catch (error) {
       setError(
         error instanceof Error ? error.message : 'Failed to save availability'
       )
+
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to save availability',
+      })
     } finally {
       setLoading(false)
     }
@@ -274,7 +343,7 @@ export default function AvailabilityPage() {
         </h1>
       </div>
 
-      <div className='bg-card rounded-md p-4 border'>
+      <div className='bg-card rounded-md p-4 border mb-6'>
         <div className='flex items-center justify-center gap-3'>
           <Button
             onClick={prevDate}
@@ -305,7 +374,7 @@ export default function AvailabilityPage() {
         </div>
       </div>
 
-      <Card>
+      <Card className='mb-8'>
         <CardHeader className='py-4'>
           <CardTitle>Set Availability</CardTitle>
           <CardDescription>
@@ -333,12 +402,25 @@ export default function AvailabilityPage() {
                       selected={selectedDate}
                       onSelect={(date) => date && setSelectedDate(date)}
                       className='rounded-md border'
+                      modifiers={{
+                        booked: (date) => !!isDateAlreadySet(date),
+                      }}
+                      modifiersClassNames={{
+                        booked: 'border-2 border-blue-400 bg-blue-50',
+                      }}
                     />
                   </div>
                 </div>
 
                 <div className='space-y-2'>
                   <Label>Start Time</Label>
+                  {isDateAlreadySet(selectedDate) && (
+                    <div className='mb-1'>
+                      <Badge variant='outline' className='text-xs bg-blue-50'>
+                        Updating existing availability
+                      </Badge>
+                    </div>
+                  )}
                   <Input
                     type='time'
                     value={startTime}
@@ -382,34 +464,64 @@ export default function AvailabilityPage() {
                     onClick={async () => {
                       if (!selectedDate || !user) return
 
-                      if (isDateAlreadySet(selectedDate)) {
-                        alert(
-                          'Availability already set for this date. Please delete existing availability first.'
-                        )
-                        return
-                      }
-
                       try {
                         setLoading(true)
-                        const { error } = await supabase
-                          .from('availability')
-                          .insert({
-                            store_id: storeId,
-                            user_id: user.id,
-                            date: format(selectedDate, 'yyyy-MM-dd'),
-                            status: AvailabilityStatus.Unavailable,
-                          })
+                        const formattedDate = format(selectedDate, 'yyyy-MM-dd')
+                        const existingAvailability =
+                          isDateAlreadySet(selectedDate)
+                        const isUpdate = !!existingAvailability
 
-                        if (error) throw error
+                        if (existingAvailability) {
+                          // Update existing availability
+                          const { error } = await supabase
+                            .from('availability')
+                            .update({
+                              start_time: null,
+                              end_time: null,
+                              status: AvailabilityStatus.Unavailable,
+                            })
+                            .eq('id', existingAvailability.id)
+
+                          if (error) throw error
+                        } else {
+                          // Create new unavailable record
+                          const { error } = await supabase
+                            .from('availability')
+                            .insert({
+                              store_id: storeId,
+                              user_id: user.id,
+                              date: formattedDate,
+                              status: AvailabilityStatus.Unavailable,
+                            })
+
+                          if (error) throw error
+                        }
 
                         await fetchAvailability()
                         setSelectedDate(new Date())
                         setStartTime('09:00')
                         setEndTime('17:00')
                         setOpen(false)
+
+                        // Show success toast
+                        toast({
+                          title: isUpdate
+                            ? 'Availability updated'
+                            : 'Availability set',
+                          description: `You are marked as unavailable for ${format(
+                            selectedDate,
+                            'EEEE, MMMM d'
+                          )}.`,
+                        })
                       } catch (error) {
                         console.error('Error saving availability:', error)
-                        alert('Failed to save availability')
+
+                        // Show error toast instead of alert
+                        toast({
+                          variant: 'destructive',
+                          title: 'Error',
+                          description: 'Failed to save availability',
+                        })
                       } finally {
                         setLoading(false)
                       }
@@ -424,11 +536,12 @@ export default function AvailabilityPage() {
         </CardContent>
       </Card>
 
-      <div className='space-y-4'>
+      <h2 className='text-lg font-medium mb-4'>Your Availability</h2>
+      <div className='space-y-5'>
         {availabilities.length === 0 ? (
           <div className='text-center p-8 border rounded-lg bg-gray-50'>
             <p className='text-muted-foreground'>No availabilities set yet.</p>
-            <p className='text-sm text-muted-foreground'>
+            <p className='text-sm text-muted-foreground mt-1'>
               Click &apos;Set Availability&apos; to add your availability.
             </p>
           </div>
@@ -436,27 +549,45 @@ export default function AvailabilityPage() {
           availabilities.map((availability) => (
             <div
               key={availability.id}
-              className={`p-4 rounded-lg border flex items-center justify-between ${
+              className={`p-5 rounded-lg border shadow-sm flex items-center justify-between ${
                 availability.status === AvailabilityStatus.Unavailable
                   ? 'bg-gray-50'
                   : ''
               }`}
             >
               <div>
-                <p className='font-medium'>
-                  {format(parseISO(availability.date), 'MMM dd, yyyy')}
+                <p className='font-medium text-base'>
+                  {format(parseISO(availability.date), 'EEE, MMM dd, yyyy')}
                 </p>
                 {availability.start_time ? (
-                  <p className='text-sm text-muted-foreground'>
-                    {availability.start_time} - {availability.end_time}
+                  <p className='text-sm text-muted-foreground mt-1'>
+                    {format(
+                      new Date(`2000-01-01T${availability.start_time}`),
+                      'h:mm a'
+                    )}{' '}
+                    -{' '}
+                    {format(
+                      new Date(`2000-01-01T${availability.end_time}`),
+                      'h:mm a'
+                    )}
                   </p>
                 ) : (
-                  <p className='text-sm text-red-500'>Unavailable</p>
+                  <p className='text-sm text-red-500 mt-1 font-medium'>
+                    Unavailable
+                  </p>
+                )}
+              </div>
+              <div>
+                {availability.status === AvailabilityStatus.Unavailable ? (
+                  <Badge variant='destructive'>Unavailable</Badge>
+                ) : (
+                  <Badge variant='outline'>Available</Badge>
                 )}
               </div>
               <Button
                 variant='ghost'
                 size='sm'
+                className='hover:bg-red-50 hover:text-red-600'
                 onClick={async () => {
                   try {
                     const { error } = await supabase
@@ -467,9 +598,24 @@ export default function AvailabilityPage() {
                     if (error) throw error
 
                     await fetchAvailability()
+
+                    // Show success toast
+                    toast({
+                      title: 'Availability deleted',
+                      description: `Availability for ${format(
+                        parseISO(availability.date),
+                        'EEEE, MMMM d'
+                      )} has been deleted.`,
+                    })
                   } catch (error) {
                     console.error('Error deleting availability:', error)
-                    alert('Failed to delete availability')
+
+                    // Show error toast
+                    toast({
+                      variant: 'destructive',
+                      title: 'Error',
+                      description: 'Failed to delete availability',
+                    })
                   }
                 }}
               >

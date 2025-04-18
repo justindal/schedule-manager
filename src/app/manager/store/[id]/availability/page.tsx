@@ -1,6 +1,6 @@
 'use client'
 
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { createClientBrowser } from '@/app/utils/supabase/client'
 import { useState, useEffect, useMemo } from 'react'
 import {
@@ -10,10 +10,18 @@ import {
   endOfWeek,
   addWeeks,
   subWeeks,
+  addDays,
+  subDays,
+  parseISO,
 } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { AlertCircle } from 'lucide-react'
+import {
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  CalendarDays,
+} from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -74,6 +82,7 @@ export default function AvailabilityPage() {
   const [storeName, setStoreName] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const supabase = createClientBrowser()
+  const router = useRouter()
 
   useEffect(() => {
     async function fetchStoreName() {
@@ -138,6 +147,7 @@ function AvailabilityTable({ storeId }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const supabase = createClientBrowser()
+  const router = useRouter()
 
   const weekDates = useMemo(
     () =>
@@ -148,10 +158,29 @@ function AvailabilityTable({ storeId }: Props) {
     [currentWeek]
   )
 
-  const navigateWeek = (direction: 'prev' | 'next') => {
-    setCurrentWeek((current) =>
-      direction === 'next' ? addWeeks(current, 1) : subWeeks(current, 1)
-    )
+  const navigateWeek = (direction: 'prev' | 'next' | 'today') => {
+    if (direction === 'prev') {
+      const newDate = subDays(weekDates[0], 7)
+      const newWeekDates = eachDayOfInterval({
+        start: startOfWeek(newDate),
+        end: endOfWeek(newDate),
+      })
+      setCurrentWeek(newWeekDates[0])
+    } else if (direction === 'next') {
+      const newDate = addDays(weekDates[6], 1)
+      const newWeekDates = eachDayOfInterval({
+        start: startOfWeek(newDate),
+        end: endOfWeek(newDate),
+      })
+      setCurrentWeek(newWeekDates[0])
+    } else if (direction === 'today') {
+      const today = new Date()
+      const newWeekDates = eachDayOfInterval({
+        start: startOfWeek(today),
+        end: endOfWeek(today),
+      })
+      setCurrentWeek(newWeekDates[0])
+    }
   }
 
   const availabilityMap = useMemo(() => {
@@ -282,12 +311,15 @@ function AvailabilityTable({ storeId }: Props) {
 
         setEmployees(uniqueProfiles)
 
+        const weekStartDate = format(weekDates[0], 'yyyy-MM-dd')
+        const weekEndDate = format(weekDates[6], 'yyyy-MM-dd')
+
         const { data: availData, error: availError } = await supabase
           .from('availability')
           .select('*')
           .eq('store_id', storeId)
-          .gte('date', format(weekDates[0], 'yyyy-MM-dd'))
-          .lte('date', format(weekDates[6], 'yyyy-MM-dd'))
+          .gte('date', weekStartDate)
+          .lte('date', weekEndDate)
 
         if (availError) throw availError
 
@@ -322,7 +354,10 @@ function AvailabilityTable({ storeId }: Props) {
 
     if (avail.start_time && avail.end_time) {
       return {
-        text: `${avail.start_time.slice(0, 5)} - ${avail.end_time.slice(0, 5)}`,
+        text: `${format(
+          new Date(`2000-01-01T${avail.start_time}`),
+          'h:mm a'
+        )} - ${format(new Date(`2000-01-01T${avail.end_time}`), 'h:mm a')}`,
         className: 'text-blue-600 bg-blue-50',
       }
     }
@@ -482,15 +517,46 @@ function AvailabilityTable({ storeId }: Props) {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center justify-between'>
-        <Button onClick={() => navigateWeek('prev')}>
-          &larr; Previous Week
-        </Button>
-        <span className='font-medium'>
-          {format(weekDates[0], 'MMM d')} -{' '}
-          {format(weekDates[6], 'MMM d, yyyy')}
-        </span>
-        <Button onClick={() => navigateWeek('next')}>Next Week &rarr;</Button>
+      <div className='bg-card rounded-md p-4 border'>
+        <div className='flex items-center justify-center gap-3'>
+          <Button
+            onClick={() => navigateWeek('prev')}
+            variant='outline'
+            size='icon'
+            className='h-8 w-8'
+          >
+            <ChevronLeft className='h-4 w-4' />
+          </Button>
+
+          <Button
+            onClick={() => navigateWeek('today')}
+            variant='outline'
+            size='sm'
+            className='h-8'
+          >
+            <CalendarDays className='h-4 w-4 mr-2' />
+            Today
+          </Button>
+
+          <div className='font-medium text-center px-4 py-2 bg-muted rounded-md'>
+            <div className='hidden sm:block'>
+              {format(weekDates[0], 'MMMM d')} -{' '}
+              {format(weekDates[6], 'MMMM d, yyyy')}
+            </div>
+            <div className='sm:hidden'>
+              {format(weekDates[0], 'MMM d')} - {format(weekDates[6], 'MMM d')}
+            </div>
+          </div>
+
+          <Button
+            onClick={() => navigateWeek('next')}
+            variant='outline'
+            size='icon'
+            className='h-8 w-8'
+          >
+            <ChevronRight className='h-4 w-4' />
+          </Button>
+        </div>
       </div>
 
       <div className='overflow-x-auto border rounded-lg shadow-sm'>
