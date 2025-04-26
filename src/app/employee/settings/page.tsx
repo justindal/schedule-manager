@@ -47,6 +47,7 @@ export default function EmployeeSettings() {
     full_name?: string
     email?: string
   } | null>(null)
+  const [signInProvider, setSignInProvider] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadUserData() {
@@ -57,6 +58,9 @@ export default function EmployeeSettings() {
 
       if (user) {
         setUser(user)
+        // Get the sign-in provider from app_metadata
+        const provider = user.app_metadata?.provider || null
+        setSignInProvider(provider)
 
         // Get user profile data
         const { data: profile } = await supabase
@@ -181,7 +185,9 @@ export default function EmployeeSettings() {
             <CardHeader>
               <CardTitle>Change Password</CardTitle>
               <CardDescription>
-                Update your password to keep your account secure
+                {signInProvider && signInProvider !== 'email'
+                  ? `You signed in with ${signInProvider}. Password change is not available.`
+                  : 'Update your password to keep your account secure'}
               </CardDescription>
             </CardHeader>
             <CardContent className='space-y-4'>
@@ -190,29 +196,37 @@ export default function EmployeeSettings() {
                   {error}
                 </div>
               )}
-              <div className='space-y-2'>
-                <Label htmlFor='new-password'>New Password</Label>
-                <Input
-                  id='new-password'
-                  type='password'
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-              <div className='space-y-2'>
-                <Label htmlFor='confirm-password'>Confirm New Password</Label>
-                <Input
-                  id='confirm-password'
-                  type='password'
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                />
-              </div>
+              {(!signInProvider || signInProvider === 'email') && (
+                <>
+                  <div className='space-y-2'>
+                    <Label htmlFor='new-password'>New Password</Label>
+                    <Input
+                      id='new-password'
+                      type='password'
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  </div>
+                  <div className='space-y-2'>
+                    <Label htmlFor='confirm-password'>
+                      Confirm New Password
+                    </Label>
+                    <Input
+                      id='confirm-password'
+                      type='password'
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
             </CardContent>
             <CardFooter>
-              <Button onClick={handleChangePassword} disabled={isUpdating}>
-                {isUpdating ? 'Updating...' : 'Update Password'}
-              </Button>
+              {(!signInProvider || signInProvider === 'email') && (
+                <Button onClick={handleChangePassword} disabled={isUpdating}>
+                  {isUpdating ? 'Updating...' : 'Update Password'}
+                </Button>
+              )}
             </CardFooter>
           </Card>
 
