@@ -10,6 +10,7 @@ import {
   Clock,
   Home,
   ChevronDown,
+  Settings,
 } from 'lucide-react'
 import { signOut } from '@/app/actions/auth/login'
 import {
@@ -128,6 +129,16 @@ export function Navbar() {
             {user?.email}
           </span>
 
+          {/* Desktop settings link */}
+          <div className='hidden sm:block'>
+            <Button variant='ghost' size='sm' asChild>
+              <Link href='/manager/settings'>
+                <Settings className='w-4 h-4 mr-2' />
+                Settings
+              </Link>
+            </Button>
+          </div>
+
           <div className='sm:hidden'>
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
@@ -154,6 +165,19 @@ export function Navbar() {
                       <Link href='/manager'>
                         <Home className='w-4 h-4 mr-2' />
                         Home
+                      </Link>
+                    </Button>
+
+                    {/* Mobile settings link */}
+                    <Button
+                      variant='ghost'
+                      asChild
+                      className='justify-start h-10 px-2'
+                      onClick={() => setOpen(false)}
+                    >
+                      <Link href='/manager/settings'>
+                        <Settings className='w-4 h-4 mr-2' />
+                        Settings
                       </Link>
                     </Button>
 
@@ -249,8 +273,13 @@ export function Navbar() {
           </div>
           <div className='hidden sm:block'>
             <form action={signOut}>
-              <Button variant='ghost' size='icon' type='submit'>
-                <LogOut className='w-4 h-4' />
+              <Button
+                variant='ghost'
+                className='text-red-600 hover:text-red-600 hover:bg-red-100'
+                type='submit'
+              >
+                <LogOut className='w-4 h-4 mr-2' />
+                Sign Out
               </Button>
             </form>
           </div>

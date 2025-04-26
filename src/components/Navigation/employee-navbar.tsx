@@ -2,7 +2,15 @@
 
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Store, LogOut, Menu, Calendar, Clock, Home } from 'lucide-react'
+import {
+  Store,
+  LogOut,
+  Menu,
+  Calendar,
+  Clock,
+  Home,
+  Settings,
+} from 'lucide-react'
 import { signOut } from '@/app/actions/auth/login'
 import {
   Sheet,
@@ -139,6 +147,17 @@ export function EmployeeNavbar() {
           <span className='hidden sm:inline text-sm text-muted-foreground'>
             {user?.email}
           </span>
+
+          {/* Desktop settings link */}
+          <div className='hidden sm:block'>
+            <Button variant='ghost' size='sm' asChild>
+              <Link href='/employee/settings'>
+                <Settings className='w-4 h-4 mr-2' />
+                Settings
+              </Link>
+            </Button>
+          </div>
+
           <div className='sm:hidden'>
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
@@ -163,6 +182,19 @@ export function EmployeeNavbar() {
                     <Link href='/employee'>
                       <Home className='w-4 h-4 mr-2' />
                       Dashboard
+                    </Link>
+                  </Button>
+
+                  {/* Mobile Settings Link */}
+                  <Button
+                    variant='ghost'
+                    className='w-full justify-start'
+                    asChild
+                    onClick={() => setOpen(false)}
+                  >
+                    <Link href='/employee/settings'>
+                      <Settings className='w-4 h-4 mr-2' />
+                      Settings
                     </Link>
                   </Button>
 
