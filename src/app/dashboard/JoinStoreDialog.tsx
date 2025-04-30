@@ -122,25 +122,10 @@ export function JoinStoreDialog({ trigger }: Props) {
         return
       }
 
-      console.log('Requesting manager access for:', store.id)
-
-      const { error: managerError } = await supabase
-        .from('store_managers')
-        .insert({
-          store_id: store.id,
-          manager_id: user?.id,
-          is_primary: false,
-          status: 'pending',
-        })
-
-      if (managerError && !managerError.message.includes('duplicate')) {
-        console.error('Error requesting manager access:', managerError)
-      }
-
       console.log('Successfully joined store:', store.name)
       toast({
         title: 'Success',
-        description: `You've joined ${store.name}. An existing manager will need to approve your request for manager access.`,
+        description: `You've joined ${store.name} as an employee.`,
       })
       router.refresh()
       setOpen(false)
@@ -163,9 +148,7 @@ export function JoinStoreDialog({ trigger }: Props) {
         <DialogHeader>
           <DialogTitle>Join Store</DialogTitle>
           <DialogDescription>
-            Enter a store code to join. You&apos;ll immediately get employee
-            access, and your request for manager access will be sent for
-            approval.
+            Enter a store code to join as an employee.
           </DialogDescription>
         </DialogHeader>
         <div className='py-4'>

@@ -1,25 +1,18 @@
 import { createClient } from '@/app/utils/supabase/server'
 import {
   Card,
-  CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Plus, Clock, HelpCircle } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import Link from 'next/link'
-import { UnifiedStoreCard } from './UnifiedStoreCard'
 import { headers } from 'next/headers'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import { JoinStoreDialog } from './JoinStoreDialog'
+import { StoreListTabs } from './StoreListTabs'
 
-export default async function ManagerDashboard() {
+export default async function DashboardPage() {
   // @ts-expect-error - Next.js headers helper
   headers({ 'Cache-Control': 'no-store' })
 
@@ -36,18 +29,12 @@ export default async function ManagerDashboard() {
     return <div>Error loading stores</div>
   }
 
-  const allUserStores = [...managerStores]
-
   const { data: employeeData } = await supabase
     .from('store_employees')
     .select(`store_id`)
     .eq('employee_id', user?.id)
 
-  const employeeStoreIds = new Set(
-    employeeData?.map((item) => item.store_id) || []
-  )
-
-  if (!allUserStores?.length && !employeeData?.length) {
+  if (!managerStores?.length && !employeeData?.length) {
     return (
       <div className='container mx-auto px-4 py-8 space-y-6'>
         <div className='flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0'>
@@ -57,7 +44,7 @@ export default async function ManagerDashboard() {
               trigger={<Button className='w-full sm:w-auto'>Join Store</Button>}
             />
             <Button asChild className='w-full sm:w-auto'>
-              <Link href='/manager/stores/new'>
+              <Link href='/dashboard/stores/new'>
                 <Plus className='w-4 h-4 mr-2' />
                 Create Store
               </Link>
@@ -95,18 +82,27 @@ export default async function ManagerDashboard() {
     return <div>Error loading stores</div>
   }
 
-  const storesWithUserInfo = stores.map((store) => {
+  const allStores = stores.map((store) => {
     const managerStore = managerStores.find((ms) => ms.store_id === store.id)
+    const isManager = !!managerStore
+    const isEmployee =
+      employeeData?.some((ed) => ed.store_id === store.id) || false
+
     return {
       ...store,
-      isManager: !!managerStore,
+      isManager,
       managerStatus: managerStore?.status,
-      isEmployee: employeeStoreIds.has(store.id),
+      isEmployee,
     }
   })
 
+  const managedStores = allStores.filter((store) => store.isManager)
+  const employeeOnlyStores = allStores.filter(
+    (store) => store.isEmployee && !store.isManager
+  )
+
   return (
-    <div className='container mx-auto px-4 py-8 space-y-6'>
+    <div className='container mx-auto px-4 py-8 space-y-8'>
       <div className='flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0'>
         <h1 className='text-2xl font-semibold'>My Stores</h1>
         <div className='flex flex-wrap gap-2'>
@@ -114,7 +110,7 @@ export default async function ManagerDashboard() {
             trigger={<Button className='w-full sm:w-auto'>Join Store</Button>}
           />
           <Button asChild className='w-full sm:w-auto'>
-            <Link href='/manager/stores/new'>
+            <Link href='/dashboard/stores/new'>
               <Plus className='w-4 h-4 mr-2' />
               Create Store
             </Link>
@@ -122,17 +118,11 @@ export default async function ManagerDashboard() {
         </div>
       </div>
 
-      <div className='grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3'>
-        {storesWithUserInfo.map((store) => (
-          <UnifiedStoreCard
-            key={store.id}
-            store={store}
-            isManager={store.isManager}
-            isEmployee={store.isEmployee}
-            managerStatus={store.managerStatus}
-          />
-        ))}
-      </div>
+      <StoreListTabs
+        allStores={allStores}
+        managedStores={managedStores}
+        employeeStores={employeeOnlyStores}
+      />
     </div>
   )
 }

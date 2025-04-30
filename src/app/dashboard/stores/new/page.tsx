@@ -30,7 +30,7 @@ const showSuccess = (title: string, description: string) => {
   })
 }
 
-export default function NewStore() {
+export default function NewDashboardStore() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
@@ -86,7 +86,7 @@ export default function NewStore() {
       }
 
       showSuccess('Success', 'Store created successfully!')
-      router.push('/manager')
+      router.push('/dashboard')
       router.refresh()
     } catch (error: unknown) {
       console.error('Error creating store:', error)
