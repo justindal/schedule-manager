@@ -9,7 +9,6 @@ import {
 } from '@/components/ui/card'
 import Link from 'next/link'
 import { CalendarDays, Users, Clock, Shield, Menu } from 'lucide-react'
-import { ContinueButton } from '@/components/Buttons/ContinueButton'
 
 export default function Home() {
   return (
@@ -65,16 +64,13 @@ export default function Home() {
             </CardContent>
 
             <p className='text-muted-foreground text-center pb-3'>
-              Please select how you would like to continue.
+              Log in to your account to get started
             </p>
 
             <CardFooter className='flex flex-col gap-4'>
-              <div className='w-full'>
-                <ContinueButton role='employee' />
-              </div>
-              <div className='w-full'>
-                <ContinueButton role='manager' variant='outline' />
-              </div>
+              <Button asChild className='w-full' size='lg'>
+                <Link href='/login'>Login / Sign Up</Link>
+              </Button>
               <p className='text-xs text-center text-muted-foreground mt-2'>
                 By continuing, you agree to our Terms of Service and Privacy
                 Policy
@@ -107,61 +103,6 @@ export default function Home() {
           </div>
         </div>
       </main>
-
-      {/* <footer className='border-t mt-auto'>
-        <div className='max-w-7xl mx-auto px-4 py-8'>
-          <div className='grid md:grid-cols-3 gap-8'>
-            <div>
-              <h4 className='font-semibold mb-4'>Quick Links</h4>
-              <div className='space-y-2'>
-                <Link
-                  href='/features'
-                  className='block text-muted-foreground hover:text-primary'
-                >
-                  Features
-                </Link>
-                <Link
-                  href='/contact'
-                  className='block text-muted-foreground hover:text-primary'
-                >
-                  Contact
-                </Link>
-              </div>
-            </div>
-
-            <div>
-              <h4 className='font-semibold mb-4'>Legal</h4>
-              <div className='space-y-2'>
-                <Link
-                  href='/privacy'
-                  className='block text-muted-foreground hover:text-primary'
-                >
-                  Privacy Policy
-                </Link>
-                <Link
-                  href='/terms'
-                  className='block text-muted-foreground hover:text-primary'
-                >
-                  Terms & Conditions
-                </Link>
-              </div>
-            </div>
-
-            <div>
-              <h4 className='font-semibold mb-4'>Tech Stack</h4>
-              <div className='space-y-2'>
-                <span className='block text-muted-foreground'>Next.js</span>
-                <span className='block text-muted-foreground'>React</span>
-                <span className='block text-muted-foreground'>
-                  Tailwind CSS
-                </span>
-                <span className='block text-muted-foreground'>shadcn/ui</span>
-                <span className='block text-muted-foreground'>supabase</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer> */}
     </div>
   )
 }
