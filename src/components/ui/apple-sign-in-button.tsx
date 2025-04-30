@@ -4,19 +4,15 @@ import { Button } from '@/components/ui/button'
 import { signInWithApple } from '@/app/actions/auth/apple-signin'
 
 interface AppleSignInButtonProps {
-  role: 'manager' | 'employee'
   className?: string
 }
 
-export function AppleSignInButton({
-  role,
-  className = '',
-}: AppleSignInButtonProps) {
+export function AppleSignInButton({ className = '' }: AppleSignInButtonProps) {
   return (
     <Button
       type='button'
       onClick={async () => {
-        await signInWithApple(role)
+        await signInWithApple()
       }}
       className={`w-full bg-black hover:bg-gray-900 text-white font-medium py-2.5 rounded-md flex items-center justify-center gap-2 ${className}`}
     >

@@ -1,9 +1,90 @@
-import { type NextRequest } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/app/utils/supabase/middleware'
+import { createServerClient } from '@supabase/ssr'
+
+const createClient = async (request: NextRequest) => {
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value
+        },
+        set(name: string, value: string, options: any) {
+          request.cookies.set({
+            name,
+            value,
+            ...options,
+          })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({
+            name,
+            value,
+            ...options,
+          })
+        },
+        remove(name: string, options: any) {
+          request.cookies.set({
+            name,
+            value: '',
+            ...options,
+          })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({
+            name,
+            value: '',
+            ...options,
+          })
+        },
+      },
+    }
+  )
+
+  return { supabase, response }
+}
 
 export async function middleware(request: NextRequest) {
-  // update user's auth session
-  return await updateSession(request)
+  const sessionResponse = await updateSession(request)
+
+  const url = new URL(request.url)
+  const path = url.pathname
+
+  if (
+    path === '/' ||
+    path.includes('/login') ||
+    path.includes('/register') ||
+    path.includes('/auth/') ||
+    path.includes('/contact')
+  ) {
+    return sessionResponse
+  }
+
+  const { supabase, response } = await createClient(request)
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user && !path.startsWith('/api')) {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  return response
 }
 
 export const config = {

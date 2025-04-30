@@ -3,26 +3,26 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/app/utils/supabase/server'
 
-export async function signInWithApple(role: 'manager' | 'employee') {
+export async function signInWithApple() {
   const supabase = await createClient()
 
-  const callbackUrl = new URL(
-    `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
-  )
-  callbackUrl.searchParams.set('role', role)
+  const callbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'apple',
     options: {
-      redirectTo: callbackUrl.toString(),
+      redirectTo: callbackUrl,
       scopes: 'name email',
     },
   })
 
   if (error) {
-    console.error('Apple sign-in error:', error)
     redirect('/auth/auth-code-error')
   }
 
-  return redirect(data.url)
+  if (data.url) {
+    return redirect(data.url)
+  } else {
+    redirect('/auth/auth-code-error')
+  }
 }
