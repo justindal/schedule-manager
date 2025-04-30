@@ -12,12 +12,31 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
-import { Users } from 'lucide-react'
+import { UserPlus } from 'lucide-react'
 import { signup } from '@/app/actions/auth/login'
+import { useState } from 'react'
 
-export default function EmployeeRegister() {
+export default function RegisterPage() {
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
   const handleSubmit = async (formData: FormData) => {
-    await signup(formData, 'employee')
+    setLoading(true)
+    setError(null)
+    const password = formData.get('password') as string
+    const confirmPassword = formData.get('confirmPassword') as string
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      setLoading(false)
+      return
+    }
+
+    const result = await signup(formData)
+    if (result?.error) {
+      setError(result.error)
+    }
+    setLoading(false)
   }
 
   return (
@@ -25,17 +44,24 @@ export default function EmployeeRegister() {
       <Card className='w-[400px]'>
         <CardHeader className='text-center space-y-2'>
           <div className='flex justify-center'>
-            <Users className='h-12 w-12 text-primary' />
+            <UserPlus className='h-12 w-12 text-primary' />
           </div>
-          <CardTitle className='text-2xl font-bold'>
-            Create Employee Account
-          </CardTitle>
-          <CardDescription>
-            Register to view and manage your schedule
-          </CardDescription>
+          <CardTitle className='text-2xl font-bold'>Create Account</CardTitle>
+          <CardDescription>Sign up to start using ShiftTrack</CardDescription>
         </CardHeader>
-        <form action={handleSubmit}>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            handleSubmit(new FormData(e.currentTarget))
+          }}
+        >
           <CardContent className='space-y-4'>
+            {error && (
+              <div className='p-3 text-sm text-red-500 bg-red-50 rounded-md'>
+                {error}
+              </div>
+            )}
             <div className='space-y-2'>
               <Label htmlFor='name'>Full Name</Label>
               <Input
@@ -44,6 +70,7 @@ export default function EmployeeRegister() {
                 type='text'
                 placeholder='John Doe'
                 required
+                disabled={loading}
               />
             </div>
             <div className='space-y-2'>
@@ -54,16 +81,18 @@ export default function EmployeeRegister() {
                 type='email'
                 placeholder='name@company.com'
                 required
+                disabled={loading}
               />
             </div>
             <div className='space-y-2'>
-              <Label htmlFor='password'>Password</Label>
+              <Label htmlFor='password'>Password (min. 6 characters)</Label>
               <Input
                 id='password'
                 name='password'
                 type='password'
                 required
                 minLength={6}
+                disabled={loading}
               />
             </div>
             <div className='space-y-2'>
@@ -74,24 +103,25 @@ export default function EmployeeRegister() {
                 type='password'
                 required
                 minLength={6}
+                disabled={loading}
               />
             </div>
           </CardContent>
+
           <CardFooter className='flex flex-col gap-4'>
-            <Button type='submit' className='w-full' size='lg'>
-              Create Account
+            <Button
+              type='submit'
+              className='w-full'
+              size='lg'
+              disabled={loading}
+            >
+              {loading ? 'Creating Account...' : 'Create Account'}
             </Button>
             <div className='flex flex-col items-center gap-2 text-sm text-muted-foreground'>
               <p>
-                Already have an account?{' '}
-                <Link href='/employee/login' className='text-primary hover:underline'>
+                Already have an account?
+                <Link href='/login' className='text-primary hover:underline'>
                   Sign in
-                </Link>
-              </p>
-              <p>
-                Not an employee?{' '}
-                <Link href='/' className='text-primary hover:underline'>
-                  Go back
                 </Link>
               </p>
             </div>

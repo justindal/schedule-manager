@@ -17,7 +17,7 @@ import { login } from '@/app/actions/auth/login'
 import { useState } from 'react'
 import { AppleSignInButton } from '@/components/ui/apple-sign-in-button'
 
-export default function ManagerLogin() {
+export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (formData: FormData) => {
@@ -34,10 +34,8 @@ export default function ManagerLogin() {
           <div className='flex justify-center'>
             <Shield className='h-12 w-12 text-primary' />
           </div>
-          <CardTitle className='text-2xl font-bold'>Manager Login</CardTitle>
-          <CardDescription>
-            Sign in to access your management dashboard
-          </CardDescription>
+          <CardTitle className='text-2xl font-bold'>Login</CardTitle>
+          <CardDescription>Sign in to access your dashboard</CardDescription>
         </CardHeader>
 
         <form action={handleSubmit}>
@@ -82,28 +80,19 @@ export default function ManagerLogin() {
                 <div className='w-full border-t border-gray-300'></div>
               </div>
               <div className='relative flex justify-center text-xs uppercase'>
-                <span className='px-2 bg-white text-muted-foreground'>
+                <span className='px-2 bg-background text-muted-foreground'>
                   Or continue with
                 </span>
               </div>
             </div>
 
-            <AppleSignInButton role='manager' />
+            <AppleSignInButton />
 
             <div className='flex flex-col items-center gap-2 text-sm text-muted-foreground'>
               <p>
                 Don&apos;t have an account?{' '}
-                <Link
-                  href='/manager/register'
-                  className='text-primary hover:underline'
-                >
+                <Link href='/register' className='text-primary hover:underline'>
                   Create one
-                </Link>
-              </p>
-              <p>
-                Not a manager?{' '}
-                <Link href='/' className='text-primary hover:underline'>
-                  Go back
                 </Link>
               </p>
             </div>
