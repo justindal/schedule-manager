@@ -132,12 +132,16 @@ export default function AvailabilityPage() {
 
       if (availError) throw new Error('Failed to fetch availabilities')
       setAvailability(availData ?? [])
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching availability:', err)
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : 'Failed to load availability data for this week'
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to load availability data for this week',
+        description: errorMessage,
       })
     } finally {
       setIsRefreshing(false)
@@ -173,13 +177,13 @@ export default function AvailabilityPage() {
         managerData !== null && managerData.status === 'approved'
       setIsManager(currentIsManager)
 
-      const { data: employeeCheck, error: employeeError } = await supabase
+      const { count: employeeCount, error: employeeError } = await supabase
         .from('store_employees')
         .select('employee_id', { count: 'exact', head: true })
         .eq('store_id', storeId)
         .eq('employee_id', userId)
       if (employeeError) throw new Error('Failed to check employee status')
-      currentIsEmployee = (employeeCheck?.count ?? 0) > 0
+      currentIsEmployee = (employeeCount ?? 0) > 0
       setIsEmployee(currentIsEmployee)
 
       if (!currentIsManager && !currentIsEmployee) {
@@ -234,22 +238,48 @@ export default function AvailabilityPage() {
       if (managerError2) throw new Error('Failed to fetch managers')
 
       const allProfiles = [
-        ...(storeEmployees?.map((se) => ({
-          ...se.profiles,
-          id: se.profiles.id,
-          is_manager: false,
-        })) ?? []),
-        ...(storeManagers?.map((sm) => ({
-          ...sm.profiles,
-          id: sm.profiles.id,
-          is_manager: true,
-          is_primary: sm.is_primary,
-        })) ?? []),
+        ...(storeEmployees?.flatMap((se) => {
+          if (se.profiles && se.profiles.length > 0) {
+            const profile = se.profiles[0]
+            return [
+              {
+                ...profile,
+                id: profile.id,
+                is_manager: false,
+              },
+            ]
+          }
+          return []
+        }) ?? []),
+        ...(storeManagers?.flatMap((sm) => {
+          if (sm.profiles && sm.profiles.length > 0) {
+            const profile = sm.profiles[0]
+            return [
+              {
+                ...profile,
+                id: profile.id,
+                is_manager: true,
+                is_primary: sm.is_primary,
+              },
+            ]
+          }
+          return []
+        }) ?? []),
       ]
 
-      const uniqueProfiles = Array.from(
-        new Map(allProfiles.map((item) => [item.id, item])).values()
+      const validProfiles = allProfiles.filter(
+        (p) => p !== null && p !== undefined
       )
+
+      const uniqueProfilesMap = new Map<string, Profile>()
+      validProfiles.forEach((item) => {
+        if (item && item.id && item.full_name) {
+          uniqueProfilesMap.set(item.id, item as Profile)
+        } else {
+          console.warn('Filtered out an invalid profile item:', item)
+        }
+      })
+      const uniqueProfiles = Array.from(uniqueProfilesMap.values())
 
       setEmployees(uniqueProfiles)
 
@@ -264,13 +294,15 @@ export default function AvailabilityPage() {
 
       if (availError) throw new Error('Failed to fetch availabilities')
       setAvailability(availData ?? [])
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error loading availability page data:', err)
-      setError(err.message || 'An unexpected error occurred')
+      const errorMessage =
+        err instanceof Error ? err.message : 'An unexpected error occurred'
+      setError(errorMessage)
       toast({
         variant: 'destructive',
         title: 'Error Loading Data',
-        description: err.message || 'Please try refreshing the page',
+        description: errorMessage || 'Please try refreshing the page',
       })
       setEmployees([])
       setAvailability([])

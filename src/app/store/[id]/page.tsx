@@ -347,13 +347,21 @@ export default function StoreDetail() {
       setManagers(processedManagers)
 
       if (employeeData) {
-        const processedEmployees: Employee[] = employeeData.map((employee) => {
-          return {
-            id: employee.employee_id,
-            full_name: employee.profiles.full_name,
-            email: employee.profiles.email,
+        const processedEmployees: Employee[] = employeeData.flatMap(
+          (employee) => {
+            if (employee.profiles && employee.profiles.length > 0) {
+              const profile = employee.profiles[0]
+              return [
+                {
+                  id: employee.employee_id,
+                  full_name: profile.full_name,
+                  email: profile.email,
+                },
+              ]
+            }
+            return []
           }
-        })
+        )
 
         setEmployees(processedEmployees)
       }

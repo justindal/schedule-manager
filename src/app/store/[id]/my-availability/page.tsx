@@ -281,7 +281,7 @@ export default function MyAvailabilityPage() {
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>
-              You don't have access to set availability for this store.
+              You don&apos;t have access to set availability for this store.
             </CardDescription>
           </CardHeader>
         </Card>

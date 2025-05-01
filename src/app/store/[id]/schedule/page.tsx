@@ -59,8 +59,8 @@ export default function SchedulePage() {
   const [isEmployee, setIsEmployee] = useState(false)
   const supabase = createClientBrowser()
   const [shiftModalOpen, setShiftModalOpen] = useState(false)
-  const [editingShift, setEditingShift] = useState<any>(null)
-  const [editingEmployee, setEditingEmployee] = useState<any>(null)
+  const [editingShift, setEditingShift] = useState<Shift | null>(null)
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
   const [editingDate, setEditingDate] = useState<Date | null>(null)
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
@@ -82,7 +82,7 @@ export default function SchedulePage() {
   const checkUserRole = useCallback(async () => {
     try {
       const { data: userData } = await supabase.auth.getUser()
-      if (!userData.user) return false
+      if (!userData.user) return { isManager: false, isEmployee: false }
 
       const { data: managerData } = await supabase
         .from('store_managers')
@@ -183,26 +183,32 @@ export default function SchedulePage() {
           )
           .eq('store_id', storeId)
 
-        const staffMap = new Map()
+        const staffMap = new Map<string, Employee>()
 
-        employeeData?.forEach((item: any) => {
-          staffMap.set(item.employee_id, {
-            id: item.employee_id,
-            full_name: item.profiles.full_name,
-            is_manager: false,
-          })
+        employeeData?.forEach((item) => {
+          if (item.profiles && item.profiles.length > 0) {
+            const profile = item.profiles[0]
+            staffMap.set(item.employee_id, {
+              id: item.employee_id,
+              full_name: profile.full_name,
+              is_manager: false,
+            })
+          }
         })
 
-        managerData?.forEach((item: any) => {
-          if (staffMap.has(item.manager_id)) {
-            const existingEntry = staffMap.get(item.manager_id)
-            existingEntry.is_manager = true
-          } else {
-            staffMap.set(item.manager_id, {
-              id: item.manager_id,
-              full_name: item.profiles.full_name,
-              is_manager: true,
-            })
+        managerData?.forEach((item) => {
+          if (item.profiles && item.profiles.length > 0) {
+            const profile = item.profiles[0]
+            if (staffMap.has(item.manager_id)) {
+              const existingEntry = staffMap.get(item.manager_id)!
+              existingEntry.is_manager = true
+            } else {
+              staffMap.set(item.manager_id, {
+                id: item.manager_id,
+                full_name: profile.full_name,
+                is_manager: true,
+              })
+            }
           }
         })
 
@@ -222,11 +228,19 @@ export default function SchedulePage() {
           .eq('store_id', storeId)
 
         const staffList =
-          employeeData?.map((e: any) => ({
-            id: e.employee_id,
-            full_name: e.profiles.full_name,
-            is_manager: false,
-          })) || []
+          employeeData?.flatMap((e) => {
+            if (e.profiles && e.profiles.length > 0) {
+              const profile = e.profiles[0]
+              return [
+                {
+                  id: e.employee_id,
+                  full_name: profile.full_name,
+                  is_manager: false,
+                },
+              ]
+            }
+            return []
+          }) || []
 
         setEmployees(staffList)
       }
@@ -282,7 +296,7 @@ export default function SchedulePage() {
     }: {
       employeeId: string
       date: Date
-      shift?: any
+      shift?: Shift
     }) => {
       setEditingEmployee(employees.find((e) => e.id === employeeId) || null)
       setEditingDate(date)
@@ -387,11 +401,13 @@ export default function SchedulePage() {
       }
 
       closeShiftModal()
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Please try again.'
       toast({
         variant: 'destructive',
         title: 'Error saving shift',
-        description: error?.message || 'Please try again.',
+        description: errorMessage,
       })
     } finally {
       setModalLoading(false)
@@ -414,11 +430,13 @@ export default function SchedulePage() {
 
       toast({ title: 'Shift deleted!' })
       closeShiftModal()
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Please try again.'
       toast({
         variant: 'destructive',
         title: 'Error deleting shift',
-        description: error?.message || 'Please try again.',
+        description: errorMessage,
       })
     } finally {
       setModalLoading(false)
@@ -477,7 +495,8 @@ export default function SchedulePage() {
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>
-              You don't have access to view this store's schedule information.
+              You don&apos;t have access to view this store&apos;s schedule
+              information.
             </CardDescription>
           </CardHeader>
         </Card>

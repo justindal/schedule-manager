@@ -23,22 +23,22 @@ export function ContinueButton({
       const userId = session.user.id
 
       if (role === 'manager') {
-        const { data: managerData, error: managerError } = await supabase
+        const { count: managerCount, error: managerError } = await supabase
           .from('store_managers')
           .select('store_id', { count: 'exact', head: true })
           .eq('manager_id', userId)
 
-        if (managerData && managerData.count > 0) {
+        if (managerCount && managerCount > 0) {
           router.push('/dashboard')
           return
         }
       } else if (role === 'employee') {
-        const { data: employeeData, error: employeeError } = await supabase
+        const { count: employeeCount, error: employeeError } = await supabase
           .from('store_employees')
           .select('store_id', { count: 'exact', head: true })
           .eq('employee_id', userId)
 
-        if (employeeData && employeeData.count > 0) {
+        if (employeeCount && employeeCount > 0) {
           router.push('/dashboard')
           return
         }
