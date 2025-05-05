@@ -207,7 +207,7 @@ export default function AvailabilityPage() {
         .select(
           `
           employee_id,
-          profiles!inner (
+          profiles!left (
             id,
             role,
             full_name,
@@ -219,62 +219,88 @@ export default function AvailabilityPage() {
 
       if (storeError) throw new Error('Failed to fetch employees')
 
-      const { data: storeManagers, error: managerError2 } = await supabase
+      const { data: storeManagers, error: managerError1 } = await supabase
         .from('store_managers')
-        .select(
-          `
-          manager_id,
-          is_primary,
-          profiles!inner (
-            id,
-            role,
-            full_name,
-            email
-          )
-        `
-        )
+        .select(`manager_id, is_primary`)
         .eq('store_id', storeId)
 
-      if (managerError2) throw new Error('Failed to fetch managers')
+      if (managerError1) throw new Error('Failed to fetch managers')
+
+      // Debug the raw data structure
+      console.log(
+        'DEBUG storeManagers raw data:',
+        JSON.stringify(storeManagers, null, 2)
+      )
+
+      // Get profile data for managers in a separate query
+      const managerIds = storeManagers?.map((m) => m.manager_id) || []
+      console.log('DEBUG manager IDs:', managerIds)
+
+      let managerProfiles = []
+      if (managerIds.length > 0) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('id', managerIds)
+
+        if (profileError) throw new Error('Failed to fetch manager profiles')
+        managerProfiles = profileData || []
+        console.log(
+          'DEBUG manager profiles:',
+          JSON.stringify(managerProfiles, null, 2)
+        )
+      }
+
+      // Now combine the data into manager objects with profiles
+      const managersWithProfiles =
+        storeManagers?.map((manager) => {
+          const profile = managerProfiles.find(
+            (p) => p.id === manager.manager_id
+          )
+          return {
+            ...manager,
+            profile,
+          }
+        }) || []
 
       const allProfiles = [
         ...(storeEmployees?.flatMap((se) => {
-          if (se.profiles && se.profiles.length > 0) {
-            const profile = se.profiles[0]
-            return [
-              {
-                ...profile,
-                id: profile.id,
-                is_manager: false,
-              },
-            ]
-          }
-          return []
+          // Check if profiles is an array and has elements
+          const profile =
+            Array.isArray(se.profiles) && se.profiles.length > 0
+              ? se.profiles[0]
+              : null
+          return [
+            {
+              id: se.employee_id,
+              full_name: profile?.full_name || 'Unknown Employee',
+              email: profile?.email,
+              role: profile?.role,
+              is_manager: false,
+            },
+          ]
         }) ?? []),
-        ...(storeManagers?.flatMap((sm) => {
-          if (sm.profiles && sm.profiles.length > 0) {
-            const profile = sm.profiles[0]
-            return [
-              {
-                ...profile,
-                id: profile.id,
-                is_manager: true,
-                is_primary: sm.is_primary,
-              },
-            ]
-          }
-          return []
-        }) ?? []),
+        ...managersWithProfiles.map((m) => ({
+          id: m.manager_id,
+          full_name: m.profile?.full_name || 'Unknown Manager',
+          email: m.profile?.email,
+          role: m.profile?.role,
+          is_manager: true,
+          is_primary: m.is_primary,
+        })),
       ]
 
       const validProfiles = allProfiles.filter(
-        (p) => p !== null && p !== undefined
+        (p) => p !== null && p !== undefined && p.id
       )
 
       const uniqueProfilesMap = new Map<string, Profile>()
       validProfiles.forEach((item) => {
-        if (item && item.id && item.full_name) {
-          uniqueProfilesMap.set(item.id, item as Profile)
+        if (item && item.id) {
+          const existing = uniqueProfilesMap.get(item.id)
+          if (!existing || item.is_manager) {
+            uniqueProfilesMap.set(item.id, item as Profile)
+          }
         } else {
           console.warn('Filtered out an invalid profile item:', item)
         }
@@ -318,14 +344,14 @@ export default function AvailabilityPage() {
     if (!avail) {
       return {
         text: 'Not Set',
-        className: 'text-gray-600 bg-gray-50',
+        className: 'text-muted-foreground bg-muted/30',
       }
     }
 
     if (avail.status === 'unavailable') {
       return {
         text: 'Unavailable',
-        className: 'text-red-600 bg-red-50',
+        className: 'text-destructive bg-destructive/20',
       }
     }
 
@@ -335,13 +361,13 @@ export default function AvailabilityPage() {
           new Date(`2000-01-01T${avail.start_time}`),
           'h:mm a'
         )} - ${format(new Date(`2000-01-01T${avail.end_time}`), 'h:mm a')}`,
-        className: 'text-blue-600 bg-blue-50',
+        className: 'text-primary bg-primary/20',
       }
     }
 
     return {
       text: 'Available',
-      className: 'text-green-600 bg-green-50',
+      className: 'text-green-500 dark:text-green-400 bg-green-500/20',
     }
   }
 

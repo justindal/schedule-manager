@@ -162,7 +162,7 @@ export default function SchedulePage() {
           .select(
             `
             employee_id,
-            profiles!inner (
+            profiles!left (
               id,
               full_name
             )
@@ -172,43 +172,79 @@ export default function SchedulePage() {
 
         const { data: managerData } = await supabase
           .from('store_managers')
-          .select(
-            `
-            manager_id,
-            profiles!inner (
-              id,
-              full_name
-            )
-          `
-          )
+          .select(`manager_id, is_primary`)
           .eq('store_id', storeId)
+
+        // Get profile data for managers in a separate query
+        const managerIds = managerData?.map((m) => m.manager_id) || []
+        console.log('DEBUG manager IDs:', managerIds)
+
+        // Define the profile type
+        interface ManagerProfile {
+          id: string
+          full_name?: string
+        }
+
+        let managerProfiles: ManagerProfile[] = []
+        if (managerIds.length > 0) {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', managerIds)
+
+          if (profileError) throw new Error('Failed to fetch manager profiles')
+          managerProfiles = profileData || []
+          console.log(
+            'DEBUG manager profiles:',
+            JSON.stringify(managerProfiles, null, 2)
+          )
+        }
+
+        // Now create manager objects with their profile data
+        const managersWithProfiles =
+          managerData?.map((manager) => {
+            const profile = managerProfiles.find(
+              (p) => p.id === manager.manager_id
+            )
+            return {
+              manager_id: manager.manager_id,
+              is_primary: manager.is_primary,
+              profiles: profile,
+            }
+          }) || []
 
         const staffMap = new Map<string, Employee>()
 
         employeeData?.forEach((item) => {
-          if (item.profiles && item.profiles.length > 0) {
-            const profile = item.profiles[0]
-            staffMap.set(item.employee_id, {
-              id: item.employee_id,
-              full_name: profile.full_name,
-              is_manager: false,
-            })
-          }
+          const profile =
+            Array.isArray(item.profiles) && item.profiles.length > 0
+              ? item.profiles[0]
+              : null
+          staffMap.set(item.employee_id, {
+            id: item.employee_id,
+            full_name: profile?.full_name || 'Unknown Employee',
+            is_manager: false,
+          })
         })
 
-        managerData?.forEach((item) => {
-          if (item.profiles && item.profiles.length > 0) {
-            const profile = item.profiles[0]
-            if (staffMap.has(item.manager_id)) {
-              const existingEntry = staffMap.get(item.manager_id)!
-              existingEntry.is_manager = true
-            } else {
-              staffMap.set(item.manager_id, {
-                id: item.manager_id,
-                full_name: profile.full_name,
-                is_manager: true,
-              })
+        managersWithProfiles.forEach((item) => {
+          const profile = item.profiles
+          const fallbackName = profile?.full_name || 'Unknown Manager'
+          if (staffMap.has(item.manager_id)) {
+            const existingEntry = staffMap.get(item.manager_id)!
+            existingEntry.is_manager = true
+            if (
+              !existingEntry.full_name ||
+              existingEntry.full_name.startsWith('Unknown')
+            ) {
+              existingEntry.full_name = fallbackName
             }
+          } else {
+            staffMap.set(item.manager_id, {
+              id: item.manager_id,
+              full_name: fallbackName,
+              is_manager: true,
+            })
           }
         })
 
@@ -219,7 +255,7 @@ export default function SchedulePage() {
           .select(
             `
             employee_id,
-            profiles!inner (
+            profiles!left (
               id,
               full_name
             )
@@ -229,17 +265,17 @@ export default function SchedulePage() {
 
         const staffList =
           employeeData?.flatMap((e) => {
-            if (e.profiles && e.profiles.length > 0) {
-              const profile = e.profiles[0]
-              return [
-                {
-                  id: e.employee_id,
-                  full_name: profile.full_name,
-                  is_manager: false,
-                },
-              ]
-            }
-            return []
+            const profile =
+              Array.isArray(e.profiles) && e.profiles.length > 0
+                ? e.profiles[0]
+                : null
+            return [
+              {
+                id: e.employee_id,
+                full_name: profile?.full_name || 'Unknown Employee',
+                is_manager: false,
+              },
+            ]
           }) || []
 
         setEmployees(staffList)

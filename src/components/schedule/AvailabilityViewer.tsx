@@ -41,12 +41,14 @@ export function AvailabilityViewer({
                         <div key={avail.id} className='text-sm'>
                           {format(availDate, 'EEE MMM d')}:{' '}
                           {avail.status === 'available' && avail.start_time ? (
-                            <span className='text-green-600'>
+                            <span className='text-green-600 dark:text-green-400'>
                               {avail.start_time.slice(0, 5)} -{' '}
                               {avail.end_time?.slice(0, 5)}
                             </span>
                           ) : (
-                            <span className='text-red-600'>Unavailable</span>
+                            <span className='text-destructive'>
+                              Unavailable
+                            </span>
                           )}
                         </div>
                       )

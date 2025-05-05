@@ -247,8 +247,7 @@ export default function StoreDetail() {
   useEffect(() => {
     loadStoreData()
     checkUserRole()
-    const interval = setInterval(loadManagersAndEmployees, REFRESH_INTERVAL_MS)
-    return () => clearInterval(interval)
+    loadManagersAndEmployees()
   }, [])
 
   async function checkUserRole() {

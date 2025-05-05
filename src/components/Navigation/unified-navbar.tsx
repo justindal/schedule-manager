@@ -110,7 +110,7 @@ export function UnifiedNavbar() {
       <div className='container mx-auto px-4 flex h-14 items-center justify-between'>
         <div className='flex items-center space-x-4'>
           <Link href='/dashboard' className='font-bold'>
-            Schedule Manager
+            ShiftTrack
           </Link>
           <div className='hidden sm:flex items-center space-x-2'>
             <Button variant='ghost' asChild>
