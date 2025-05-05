@@ -3,7 +3,7 @@ import './globals.css'
 import { Toaster } from '@/components/ui/toaster'
 import { ThemeProvider } from '@/components/theme-provider'
 export const metadata: Metadata = {
-  title: 'Schedule Manager',
+  title: 'ShiftTrack',
   description: 'Streamline your scheduling process',
 }
 
@@ -17,8 +17,7 @@ export default function RootLayout({
       <body className={`antialiased`}>
         <ThemeProvider
           attribute='class'
-          defaultTheme='system'
-          enableSystem
+          defaultTheme='light'
           disableTransitionOnChange
         >
           {children}
