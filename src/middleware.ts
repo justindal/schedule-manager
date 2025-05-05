@@ -64,12 +64,20 @@ export async function middleware(request: NextRequest) {
   const url = new URL(request.url)
   const path = url.pathname
 
+  const publicPaths = [
+    '/',
+    '/login',
+    '/register',
+    '/auth/',
+    '/contact',
+    '/terms',
+    '/privacy',
+  ]
+
   if (
-    path === '/' ||
-    path.includes('/login') ||
-    path.includes('/register') ||
-    path.includes('/auth/') ||
-    path.includes('/contact')
+    publicPaths.some(
+      (p) => path === p || (p.endsWith('/') && path.startsWith(p))
+    )
   ) {
     return sessionResponse
   }
