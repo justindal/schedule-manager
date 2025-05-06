@@ -321,19 +321,43 @@ export default function StoreDetail() {
         data: ManagerQueryResult[] | null
       }
 
+      // Get employee data
       const { data: employeeData } = await supabase
         .from('store_employees')
-        .select(
-          `
-          employee_id,
-          profiles!inner (
-            id,
-            full_name,
-            email
-          )
-        `
-        )
+        .select('employee_id')
         .eq('store_id', storeId)
+
+      const employeeIds = employeeData?.map((e) => e.employee_id) || []
+      const managerIds = managerData?.map((m) => m.id) || []
+
+      const allPeopleIds = [...new Set([...employeeIds, ...managerIds])]
+      console.log(
+        'DEBUG all people IDs:',
+        JSON.stringify(allPeopleIds, null, 2)
+      )
+
+      let allProfiles: {
+        id: string
+        full_name: string
+        email: string
+      }[] = []
+
+      if (allPeopleIds.length > 0) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', allPeopleIds)
+
+        if (profileError) {
+          console.error('Error fetching profiles:', profileError)
+        } else {
+          allProfiles = profileData || []
+          console.log(
+            'DEBUG all profiles:',
+            JSON.stringify(allProfiles, null, 2)
+          )
+        }
+      }
 
       const processedManagers: Manager[] =
         managerData?.map((manager) => ({
@@ -345,25 +369,20 @@ export default function StoreDetail() {
 
       setManagers(processedManagers)
 
-      if (employeeData) {
-        const processedEmployees: Employee[] = employeeData.flatMap(
-          (employee) => {
-            if (employee.profiles && employee.profiles.length > 0) {
-              const profile = employee.profiles[0]
-              return [
-                {
-                  id: employee.employee_id,
-                  full_name: profile.full_name,
-                  email: profile.email,
-                },
-              ]
-            }
-            return []
-          }
-        )
+      const processedEmployees: Employee[] = employeeIds
+        .map((employeeId) => {
+          const profile = allProfiles.find((p) => p.id === employeeId)
+          if (!profile) return null
 
-        setEmployees(processedEmployees)
-      }
+          return {
+            id: employeeId,
+            full_name: profile.full_name,
+            email: profile.email,
+          }
+        })
+        .filter((e): e is Employee => e !== null)
+
+      setEmployees(processedEmployees)
 
       const isPrimaryManager = processedManagers.some(
         (manager) => manager.id === user.user.id && manager.is_primary
@@ -512,14 +531,40 @@ export default function StoreDetail() {
       }
 
       if (role === 'manager') {
-        const { error } = await supabase
+        // First check if the manager is already an employee
+        const { data: existingEmployee } = await supabase
+          .from('store_employees')
+          .select('*')
+          .eq('store_id', storeId)
+          .eq('employee_id', userId)
+          .maybeSingle()
+
+        // Delete from store_managers
+        const { error: deleteError } = await supabase
           .from('store_managers')
           .delete()
           .eq('store_id', storeId)
           .eq('manager_id', userId)
 
-        if (error) throw error
-        showSuccess('Manager Removed', 'Manager has been removed')
+        if (deleteError) throw deleteError
+
+        // If they're not already an employee, add them to store_employees
+        if (!existingEmployee) {
+          const { error: insertError } = await supabase
+            .from('store_employees')
+            .insert({
+              store_id: storeId,
+              employee_id: userId,
+            })
+
+          if (insertError) throw insertError
+          showSuccess('Manager Demoted', 'Manager has been demoted to employee')
+        } else {
+          showSuccess(
+            'Manager Removed',
+            'Manager has been removed from management'
+          )
+        }
       } else {
         const { error } = await supabase
           .from('store_employees')

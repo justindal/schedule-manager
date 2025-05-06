@@ -204,17 +204,7 @@ export default function AvailabilityPage() {
 
       const { data: storeEmployees, error: storeError } = await supabase
         .from('store_employees')
-        .select(
-          `
-          employee_id,
-          profiles!left (
-            id,
-            role,
-            full_name,
-            email
-          )
-        `
-        )
+        .select('employee_id')
         .eq('store_id', storeId)
 
       if (storeError) throw new Error('Failed to fetch employees')
@@ -226,87 +216,74 @@ export default function AvailabilityPage() {
 
       if (managerError1) throw new Error('Failed to fetch managers')
 
-      // Debug the raw data structure
+      const employeeIds = storeEmployees?.map((e) => e.employee_id) || []
+      const managerIds = storeManagers?.map((m) => m.manager_id) || []
+
+      const allPeopleIds = [...new Set([...employeeIds, ...managerIds])]
       console.log(
-        'DEBUG storeManagers raw data:',
-        JSON.stringify(storeManagers, null, 2)
+        'DEBUG all people IDs:',
+        JSON.stringify(allPeopleIds, null, 2)
       )
 
-      // Get profile data for managers in a separate query
-      const managerIds = storeManagers?.map((m) => m.manager_id) || []
-      console.log('DEBUG manager IDs:', managerIds)
-
-      let managerProfiles = []
-      if (managerIds.length > 0) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .in('id', managerIds)
-
-        if (profileError) throw new Error('Failed to fetch manager profiles')
-        managerProfiles = profileData || []
-        console.log(
-          'DEBUG manager profiles:',
-          JSON.stringify(managerProfiles, null, 2)
-        )
+      interface ProfileData {
+        id: string
+        full_name: string
+        email?: string
+        role?: string
       }
 
-      // Now combine the data into manager objects with profiles
-      const managersWithProfiles =
-        storeManagers?.map((manager) => {
-          const profile = managerProfiles.find(
-            (p) => p.id === manager.manager_id
-          )
-          return {
-            ...manager,
-            profile,
-          }
-        }) || []
+      let profileData: ProfileData[] = []
+      if (allPeopleIds.length > 0) {
+        const { data, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, role')
+          .in('id', allPeopleIds)
 
-      const allProfiles = [
-        ...(storeEmployees?.flatMap((se) => {
-          const profile =
-            Array.isArray(se.profiles) && se.profiles.length > 0
-              ? se.profiles[0]
-              : null
-          return [
-            {
-              id: se.employee_id,
-              full_name: profile?.full_name || 'Unknown Employee',
-              email: profile?.email,
-              role: profile?.role,
-              is_manager: false,
-            },
-          ]
-        }) ?? []),
-        ...managersWithProfiles.map((m) => ({
-          id: m.manager_id,
-          full_name: m.profile?.full_name || 'Unknown Manager',
-          email: m.profile?.email,
-          role: m.profile?.role,
-          is_manager: true,
-          is_primary: m.is_primary,
-        })),
-      ]
+        if (profileError) throw new Error('Failed to fetch profiles')
+        profileData = data || []
+        console.log('DEBUG all profiles:', JSON.stringify(profileData, null, 2))
+      }
 
-      const validProfiles = allProfiles.filter(
-        (p) => p !== null && p !== undefined && p.id
-      )
-
-      const uniqueProfilesMap = new Map<string, Profile>()
-      validProfiles.forEach((item) => {
-        if (item && item.id) {
-          const existing = uniqueProfilesMap.get(item.id)
-          if (!existing || item.is_manager) {
-            uniqueProfilesMap.set(item.id, item as Profile)
-          }
-        } else {
-          console.warn('Filtered out an invalid profile item:', item)
+      // Create employee list
+      const employeeProfiles = employeeIds.map((id) => {
+        const profile = profileData.find((p) => p.id === id)
+        return {
+          id,
+          full_name: profile?.full_name || 'Unknown Employee',
+          email: profile?.email,
+          role: profile?.role,
+          is_manager: false,
         }
       })
-      const uniqueProfiles = Array.from(uniqueProfilesMap.values())
 
-      setEmployees(uniqueProfiles)
+      // Create manager list
+      const managerProfiles = managerIds.map((id) => {
+        const profile = profileData.find((p) => p.id === id)
+        const manager = storeManagers.find((m) => m.manager_id === id)
+        return {
+          id,
+          full_name: profile?.full_name || 'Unknown Manager',
+          email: profile?.email,
+          role: profile?.role,
+          is_manager: true,
+          is_primary: manager?.is_primary,
+        }
+      })
+
+      // Combine and deduplicate profiles
+      const combinedProfiles = [...employeeProfiles, ...managerProfiles]
+      const uniqueProfilesMap = new Map<string, Profile>()
+
+      combinedProfiles.forEach((profile) => {
+        if (profile && profile.id) {
+          const existing = uniqueProfilesMap.get(profile.id)
+          if (!existing || profile.is_manager) {
+            uniqueProfilesMap.set(profile.id, profile as Profile)
+          }
+        }
+      })
+
+      setEmployees(Array.from(uniqueProfilesMap.values()))
 
       const weekStart = format(weekDates[0], 'yyyy-MM-dd')
       const weekEnd = format(weekDates[6], 'yyyy-MM-dd')

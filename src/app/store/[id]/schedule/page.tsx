@@ -159,15 +159,7 @@ export default function SchedulePage() {
       if (userRole.isManager && isManagerView) {
         const { data: employeeData } = await supabase
           .from('store_employees')
-          .select(
-            `
-            employee_id,
-            profiles!left (
-              id,
-              full_name
-            )
-          `
-          )
+          .select('employee_id')
           .eq('store_id', storeId)
 
         const { data: managerData } = await supabase
@@ -175,74 +167,59 @@ export default function SchedulePage() {
           .select(`manager_id, is_primary`)
           .eq('store_id', storeId)
 
-        // Get profile data for managers in a separate query
+        const employeeIds = employeeData?.map((e) => e.employee_id) || []
         const managerIds = managerData?.map((m) => m.manager_id) || []
-        console.log('DEBUG manager IDs:', managerIds)
 
-        // Define the profile type
-        interface ManagerProfile {
+        const allPeopleIds = [...new Set([...employeeIds, ...managerIds])]
+        console.log('DEBUG all people IDs:', allPeopleIds)
+
+        interface ProfileData {
           id: string
-          full_name?: string
+          full_name: string
+          email?: string
         }
 
-        let managerProfiles: ManagerProfile[] = []
-        if (managerIds.length > 0) {
+        let allProfiles: ProfileData[] = []
+        if (allPeopleIds.length > 0) {
           const { data: profileData, error: profileError } = await supabase
             .from('profiles')
-            .select('id, full_name')
-            .in('id', managerIds)
+            .select('id, full_name, email')
+            .in('id', allPeopleIds)
 
-          if (profileError) throw new Error('Failed to fetch manager profiles')
-          managerProfiles = profileData || []
-          console.log(
-            'DEBUG manager profiles:',
-            JSON.stringify(managerProfiles, null, 2)
-          )
-        }
-
-        // Now create manager objects with their profile data
-        const managersWithProfiles =
-          managerData?.map((manager) => {
-            const profile = managerProfiles.find(
-              (p) => p.id === manager.manager_id
+          if (profileError) {
+            console.error('Error fetching profiles:', profileError)
+          } else {
+            allProfiles = profileData || []
+            console.log(
+              'DEBUG all profiles:',
+              JSON.stringify(allProfiles, null, 2)
             )
-            return {
-              manager_id: manager.manager_id,
-              is_primary: manager.is_primary,
-              profiles: profile,
-            }
-          }) || []
+          }
+        }
 
         const staffMap = new Map<string, Employee>()
 
-        employeeData?.forEach((item) => {
-          const profile =
-            Array.isArray(item.profiles) && item.profiles.length > 0
-              ? item.profiles[0]
-              : null
-          staffMap.set(item.employee_id, {
-            id: item.employee_id,
+        employeeIds.forEach((employeeId) => {
+          const profile = allProfiles.find((p) => p.id === employeeId)
+          staffMap.set(employeeId, {
+            id: employeeId,
             full_name: profile?.full_name || 'Unknown Employee',
             is_manager: false,
           })
         })
 
-        managersWithProfiles.forEach((item) => {
-          const profile = item.profiles
-          const fallbackName = profile?.full_name || 'Unknown Manager'
-          if (staffMap.has(item.manager_id)) {
-            const existingEntry = staffMap.get(item.manager_id)!
+        managerData?.forEach((manager) => {
+          const profile = allProfiles.find((p) => p.id === manager.manager_id)
+          if (staffMap.has(manager.manager_id)) {
+            const existingEntry = staffMap.get(manager.manager_id)!
             existingEntry.is_manager = true
-            if (
-              !existingEntry.full_name ||
-              existingEntry.full_name.startsWith('Unknown')
-            ) {
-              existingEntry.full_name = fallbackName
+            if (profile?.full_name) {
+              existingEntry.full_name = profile.full_name
             }
           } else {
-            staffMap.set(item.manager_id, {
-              id: item.manager_id,
-              full_name: fallbackName,
+            staffMap.set(manager.manager_id, {
+              id: manager.manager_id,
+              full_name: profile?.full_name || 'Unknown Manager',
               is_manager: true,
             })
           }
@@ -252,31 +229,40 @@ export default function SchedulePage() {
       } else {
         const { data: employeeData } = await supabase
           .from('store_employees')
-          .select(
-            `
-            employee_id,
-            profiles!left (
-              id,
-              full_name
-            )
-          `
-          )
+          .select('employee_id')
           .eq('store_id', storeId)
 
-        const staffList =
-          employeeData?.flatMap((e) => {
-            const profile =
-              Array.isArray(e.profiles) && e.profiles.length > 0
-                ? e.profiles[0]
-                : null
-            return [
-              {
-                id: e.employee_id,
-                full_name: profile?.full_name || 'Unknown Employee',
-                is_manager: false,
-              },
-            ]
-          }) || []
+        console.log(
+          'DEBUG employee IDs:',
+          JSON.stringify(employeeData, null, 2)
+        )
+
+        let staffList: Employee[] = []
+
+        if (employeeData && employeeData.length > 0) {
+          const employeeIds = employeeData.map((e) => e.employee_id)
+
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('id, full_name, email')
+            .in('id', employeeIds)
+
+          console.log(
+            'DEBUG profile data:',
+            JSON.stringify(profileData, null, 2)
+          )
+
+          staffList = employeeData.map((employee) => {
+            const profile = profileData?.find(
+              (p) => p.id === employee.employee_id
+            )
+            return {
+              id: employee.employee_id,
+              full_name: profile?.full_name || 'Unknown Employee',
+              is_manager: false,
+            }
+          })
+        }
 
         setEmployees(staffList)
       }
