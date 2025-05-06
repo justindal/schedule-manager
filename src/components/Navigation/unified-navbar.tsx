@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Settings,
   User,
+  Briefcase,
 } from 'lucide-react'
 import { signOut } from '@/app/actions/auth/login'
 import {
@@ -69,9 +70,9 @@ interface NavbarData {
 function NavbarSkeleton() {
   return (
     <nav className='sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60'>
-      <div className='container flex h-14 items-center justify-between'>
-        <Skeleton className='h-6 w-24' />
-        <div className='flex items-center space-x-4'>
+      <div className='flex h-14 items-center justify-between px-4 md:px-8 lg:px-12'>
+        <Skeleton className='h-6 w-24 ml-1 md:ml-4' />
+        <div className='flex items-center space-x-4 mr-1 md:mr-4'>
           <Skeleton className='h-8 w-20 hidden md:block' />
           <Skeleton className='h-10 w-10 rounded-full' />
           <Skeleton className='h-8 w-8 md:hidden' />
@@ -97,7 +98,6 @@ export function UnifiedNavbar() {
         setData(json)
       } catch (error) {
         console.error('Error fetching navbar data:', error)
-        // Redirect to home page on error (likely auth issue)
         window.location.href = '/'
       } finally {
         setLoading(false)
@@ -135,16 +135,16 @@ export function UnifiedNavbar() {
 
   return (
     <nav className='sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60'>
-      <div className='container flex h-14 items-center justify-between'>
+      <div className='flex h-14 items-center justify-between px-4 md:px-8 lg:px-12'>
         <Link
           href='/dashboard'
-          className='mr-6 flex items-center space-x-2 p-2'
+          className='flex items-center space-x-3 ml-1 md:ml-4'
         >
           <Store className='h-6 w-6' />
           <span className='font-bold sm:inline-block'>ShiftTrack</span>
         </Link>
 
-        <div className='flex items-center space-x-2 md:space-x-4'>
+        <div className='flex items-center space-x-2 md:space-x-4 mr-1 md:mr-4'>
           <div className='hidden md:block'>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -239,48 +239,53 @@ export function UnifiedNavbar() {
               </SheetTrigger>
               <SheetContent
                 side='right'
-                className='w-full sm:w-[400px] p-0 flex flex-col'
+                className='w-full sm:w-[350px] p-0 flex flex-col'
               >
-                <SheetHeader className='p-6 pb-0'>
+                <SheetHeader className='px-6 py-4 border-b'>
                   <SheetTitle className='sr-only'>Navigation Menu</SheetTitle>
-                  <div className='border-b pb-6'>
-                    <Link
-                      href='/dashboard'
-                      className='flex items-center space-x-2'
-                      onClick={() => setOpen(false)}
-                    >
-                      <Store className='h-6 w-6' />
-                      <span className='font-bold'>ShiftTrack</span>
-                    </Link>
-                  </div>
+                  <Link
+                    href='/dashboard'
+                    className='flex items-center gap-3'
+                    onClick={() => setOpen(false)}
+                  >
+                    <Store className='h-5 w-5' />
+                    <span className='font-bold'>ShiftTrack</span>
+                  </Link>
                 </SheetHeader>
-                <div className='flex-1 overflow-y-auto p-6'>
-                  <Accordion type='single' collapsible className='w-full'>
-                    <AccordionItem value='all-stores'>
-                      <AccordionTrigger className='text-base'>
-                        <div className='flex items-center gap-2'>
-                          <Store className='h-5 w-5' />
-                          All Stores
+                <div className='flex-1 overflow-y-auto py-6 px-4'>
+                  <Accordion
+                    type='single'
+                    collapsible
+                    className='w-full space-y-2'
+                  >
+                    <AccordionItem
+                      value='all-stores'
+                      className='border-b-0 px-2'
+                    >
+                      <AccordionTrigger className='py-3 text-base hover:no-underline'>
+                        <div className='flex items-center gap-3'>
+                          <Store className='h-4 w-4' />
+                          <span>All Stores</span>
                           <span className='ml-1 text-xs rounded-full bg-muted px-2 py-0.5'>
                             {stores.length}
                           </span>
                         </div>
                       </AccordionTrigger>
-                      <AccordionContent>
-                        <div className='flex flex-col space-y-3 pl-8 pr-2 max-h-60 overflow-y-auto'>
+                      <AccordionContent className='pt-1 pb-3'>
+                        <div className='flex flex-col space-y-4 pl-7 pr-1 max-h-60 overflow-y-auto'>
                           {stores.length > 0 ? (
                             stores.map((store) => (
                               <div
                                 key={`${store.id}-all`}
-                                className='space-y-1 border-l-2 border-muted pl-3 pt-1 pb-2'
+                                className='space-y-1.5 border-l-2 border-muted pl-3 pt-1'
                               >
-                                <p className='font-medium text-sm mb-1'>
+                                <p className='font-medium text-sm mb-2'>
                                   {store.name}
                                 </p>
                                 <SheetClose asChild>
                                   <Link
                                     href={`/store/${store.id}`}
-                                    className='block py-1 px-2 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
+                                    className='block py-1.5 px-3 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
                                   >
                                     Details
                                   </Link>
@@ -288,7 +293,7 @@ export function UnifiedNavbar() {
                                 <SheetClose asChild>
                                   <Link
                                     href={`/store/${store.id}/availability`}
-                                    className='block py-1 px-2 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
+                                    className='block py-1.5 px-3 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
                                   >
                                     View Availabilities
                                   </Link>
@@ -297,8 +302,8 @@ export function UnifiedNavbar() {
                                   store.role === 'both') && (
                                   <SheetClose asChild>
                                     <Link
-                                      href={`/store/${store.id}/schedule`}
-                                      className='block py-1 px-2 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
+                                      href={`/store/${store.id}/schedule?manage=true`}
+                                      className='block py-1.5 px-3 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
                                     >
                                       Manage Schedule
                                     </Link>
@@ -307,7 +312,7 @@ export function UnifiedNavbar() {
                                 <SheetClose asChild>
                                   <Link
                                     href={`/store/${store.id}/my-availability`}
-                                    className='block py-1 px-2 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
+                                    className='block py-1.5 px-3 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
                                   >
                                     My Availability
                                   </Link>
@@ -324,30 +329,33 @@ export function UnifiedNavbar() {
                     </AccordionItem>
 
                     {managedStores.length > 0 && (
-                      <AccordionItem value='managed-stores'>
-                        <AccordionTrigger className='text-base'>
-                          <div className='flex items-center gap-2'>
-                            <Store className='h-5 w-5' />
-                            Managed Stores
+                      <AccordionItem
+                        value='managed-stores'
+                        className='border-b-0 px-2'
+                      >
+                        <AccordionTrigger className='py-3 text-base hover:no-underline'>
+                          <div className='flex items-center gap-3'>
+                            <Briefcase className='h-4 w-4' />
+                            <span>Managed Stores</span>
                             <span className='ml-1 text-xs rounded-full bg-muted px-2 py-0.5'>
                               {managedStores.length}
                             </span>
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent>
-                          <div className='flex flex-col space-y-3 pl-8 pr-2 max-h-60 overflow-y-auto'>
+                        <AccordionContent className='pt-1 pb-3'>
+                          <div className='flex flex-col space-y-4 pl-7 pr-1 max-h-60 overflow-y-auto'>
                             {managedStores.map((store) => (
                               <div
                                 key={`${store.id}-managed`}
-                                className='space-y-1 border-l-2 border-muted pl-3 pt-1 pb-2'
+                                className='space-y-1.5 border-l-2 border-muted pl-3 pt-1'
                               >
-                                <p className='font-medium text-sm mb-1'>
+                                <p className='font-medium text-sm mb-2'>
                                   {store.name}
                                 </p>
                                 <SheetClose asChild>
                                   <Link
                                     href={`/store/${store.id}`}
-                                    className='block py-1 px-2 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
+                                    className='block py-1.5 px-3 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
                                   >
                                     Details
                                   </Link>
@@ -355,15 +363,15 @@ export function UnifiedNavbar() {
                                 <SheetClose asChild>
                                   <Link
                                     href={`/store/${store.id}/availability`}
-                                    className='block py-1 px-2 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
+                                    className='block py-1.5 px-3 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
                                   >
                                     View Availabilities
                                   </Link>
                                 </SheetClose>
                                 <SheetClose asChild>
                                   <Link
-                                    href={`/store/${store.id}/schedule`}
-                                    className='block py-1 px-2 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
+                                    href={`/store/${store.id}/schedule?manage=true`}
+                                    className='block py-1.5 px-3 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
                                   >
                                     Manage Schedule
                                   </Link>
@@ -371,7 +379,7 @@ export function UnifiedNavbar() {
                                 <SheetClose asChild>
                                   <Link
                                     href={`/store/${store.id}/my-availability`}
-                                    className='block py-1 px-2 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
+                                    className='block py-1.5 px-3 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
                                   >
                                     My Availability
                                   </Link>
@@ -384,30 +392,33 @@ export function UnifiedNavbar() {
                     )}
 
                     {employeeOnlyStores.length > 0 && (
-                      <AccordionItem value='staff-stores'>
-                        <AccordionTrigger className='text-base'>
-                          <div className='flex items-center gap-2'>
-                            <User className='h-5 w-5' />
-                            Staff Stores
+                      <AccordionItem
+                        value='staff-stores'
+                        className='border-b-0 px-2'
+                      >
+                        <AccordionTrigger className='py-3 text-base hover:no-underline'>
+                          <div className='flex items-center gap-3'>
+                            <User className='h-4 w-4' />
+                            <span>Staff Stores</span>
                             <span className='ml-1 text-xs rounded-full bg-muted px-2 py-0.5'>
                               {employeeOnlyStores.length}
                             </span>
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent>
-                          <div className='flex flex-col space-y-3 pl-8 pr-2 max-h-60 overflow-y-auto'>
+                        <AccordionContent className='pt-1 pb-3'>
+                          <div className='flex flex-col space-y-4 pl-7 pr-1 max-h-60 overflow-y-auto'>
                             {employeeOnlyStores.map((store) => (
                               <div
                                 key={`${store.id}-staff`}
-                                className='space-y-1 border-l-2 border-muted pl-3 pt-1 pb-2'
+                                className='space-y-1.5 border-l-2 border-muted pl-3 pt-1'
                               >
-                                <p className='font-medium text-sm mb-1'>
+                                <p className='font-medium text-sm mb-2'>
                                   {store.name}
                                 </p>
                                 <SheetClose asChild>
                                   <Link
                                     href={`/store/${store.id}`}
-                                    className='block py-1 px-2 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
+                                    className='block py-1.5 px-3 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
                                   >
                                     Details
                                   </Link>
@@ -415,7 +426,7 @@ export function UnifiedNavbar() {
                                 <SheetClose asChild>
                                   <Link
                                     href={`/store/${store.id}/availability`}
-                                    className='block py-1 px-2 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
+                                    className='block py-1.5 px-3 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
                                   >
                                     View Availabilities
                                   </Link>
@@ -423,7 +434,7 @@ export function UnifiedNavbar() {
                                 <SheetClose asChild>
                                   <Link
                                     href={`/store/${store.id}/my-availability`}
-                                    className='block py-1 px-2 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
+                                    className='block py-1.5 px-3 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
                                   >
                                     My Availability
                                   </Link>
