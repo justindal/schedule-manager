@@ -265,7 +265,6 @@ export default function AvailabilityPage() {
 
       const allProfiles = [
         ...(storeEmployees?.flatMap((se) => {
-          // Check if profiles is an array and has elements
           const profile =
             Array.isArray(se.profiles) && se.profiles.length > 0
               ? se.profiles[0]
@@ -335,7 +334,7 @@ export default function AvailabilityPage() {
     } finally {
       setLoading(false)
     }
-  }, [supabase, storeId, weekDates, storeName])
+  }, [supabase, storeId, weekDates])
 
   function getAvailabilityDisplay(userId: string, date: Date) {
     const dateStr = format(date, 'yyyy-MM-dd')
