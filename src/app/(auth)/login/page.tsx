@@ -16,6 +16,7 @@ import { Shield } from 'lucide-react'
 import { login } from '@/app/actions/auth/login'
 import { useState } from 'react'
 import { AppleSignInButton } from '@/components/ui/apple-sign-in-button'
+import { GoogleSignInButton } from '@/components/ui/google-sign-in-button'
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
@@ -87,6 +88,7 @@ export default function LoginPage() {
             </div>
 
             <AppleSignInButton />
+            <GoogleSignInButton />
 
             <div className='flex flex-col items-center gap-2 text-sm text-muted-foreground'>
               <p>

@@ -4,53 +4,36 @@ import { createClient } from '@/app/utils/supabase/server'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
+  const next = searchParams.get('next') ?? '/dashboard'
+
+  console.log(
+    `Callback received. Origin: ${origin}, Code: ${code}, Next: ${next}`
+  )
 
   if (code) {
     const supabase = await createClient()
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-
-    if (!error && data?.user) {
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id, role')
-        .eq('id', data.user.id)
-        .maybeSingle()
-
-      if (!existingProfile) {
-        try {
-          const email = data.user.email || ''
-          const full_name =
-            data.user.user_metadata?.name || email.split('@')[0] || 'User'
-          const defaultRole = 'employee'
-
-          await supabase.from('profiles').upsert(
-            [
-              {
-                id: data.user.id,
-                email,
-                full_name,
-                role: defaultRole,
-              },
-            ],
-            { onConflict: 'id', ignoreDuplicates: true }
-          )
-        } catch (error) {}
-      }
-
-      const redirectPath = '/dashboard'
+    console.log('Attempting to exchange code for session...')
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(
+      code
+    )
+    if (!exchangeError) {
+      console.log('Code exchange successful. Redirecting...')
       const forwardedHost = request.headers.get('x-forwarded-host')
       const isLocalEnv = process.env.NODE_ENV === 'development'
-
       if (isLocalEnv) {
-        return NextResponse.redirect(`${origin}${redirectPath}`)
+        return NextResponse.redirect(`${origin}${next}`)
       } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${redirectPath}`)
+        return NextResponse.redirect(`https://${forwardedHost}${next}`)
       } else {
-        return NextResponse.redirect(`${origin}${redirectPath}`)
+        return NextResponse.redirect(`${origin}${next}`)
       }
-    } else if (error) {
+    } else {
+      console.error('Error exchanging code for session:', exchangeError.message)
     }
+  } else {
+    console.warn('Callback received without a code parameter.')
   }
 
+  console.log('Redirecting to auth-code-error page.')
   return NextResponse.redirect(`${origin}/auth/auth-code-error`)
 }
