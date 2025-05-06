@@ -15,6 +15,8 @@ import Link from 'next/link'
 import { UserPlus } from 'lucide-react'
 import { signup } from '@/app/actions/auth/login'
 import { useState } from 'react'
+import { AppleSignInButton } from '@/components/ui/apple-sign-in-button'
+import { GoogleSignInButton } from '@/components/ui/google-sign-in-button'
 
 export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
@@ -117,9 +119,24 @@ export default function RegisterPage() {
             >
               {loading ? 'Creating Account...' : 'Create Account'}
             </Button>
+
+            <div className='relative w-full flex items-center justify-center my-2'>
+              <div className='absolute inset-0 flex items-center'>
+                <div className='w-full border-t border-gray-300'></div>
+              </div>
+              <div className='relative flex justify-center text-xs uppercase'>
+                <span className='px-2 bg-background text-muted-foreground'>
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            <AppleSignInButton />
+            <GoogleSignInButton />
+
             <div className='flex flex-col items-center gap-2 text-sm text-muted-foreground'>
               <p>
-                Already have an account?
+                Already have an account?{' '}
                 <Link href='/login' className='text-primary hover:underline'>
                   Sign in
                 </Link>
