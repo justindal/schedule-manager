@@ -15,7 +15,8 @@ const createClient = async (request: NextRequest) => {
     {
       cookies: {
         get(name: string) {
-          return request.cookies.get(name)?.value
+          const cookie = request.cookies.get(name)
+          return cookie?.value
         },
         set(name: string, value: string, options: CookieOptions) {
           request.cookies.set({
@@ -35,21 +36,15 @@ const createClient = async (request: NextRequest) => {
           })
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
+          request.cookies.delete(name)
+
           response = NextResponse.next({
             request: {
               headers: request.headers,
             },
           })
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
+
+          response.cookies.delete(name)
         },
       },
     }
