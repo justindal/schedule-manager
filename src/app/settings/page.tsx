@@ -20,6 +20,17 @@ import { Separator } from '@/components/ui/separator'
 import { UserCog, Key, Settings, UserCircle } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ModeToggle } from '@/components/ui/mode-toggle'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from '@/components/ui/dialog'
+import { deleteUserAccount } from '@/app/actions/auth/delete-user'
 
 function SettingsSkeleton() {
   return (
@@ -151,6 +162,31 @@ export default function AccountSettings() {
       }
     } finally {
       setIsUpdating(false)
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setIsUpdating(true)
+    setError(null)
+
+    const result = await deleteUserAccount()
+
+    if (result?.error) {
+      setError(result.error)
+      toast({
+        title: 'Deletion Failed',
+        description: result.error,
+        variant: 'destructive',
+      })
+      setIsUpdating(false)
+    } else {
+      toast({
+        title: 'Account Deleted',
+        description: 'Your account has been successfully deleted.',
+      })
+      const supabase = createClientBrowser()
+      await supabase.auth.signOut()
+      window.location.href = '/'
     }
   }
 
@@ -306,6 +342,49 @@ export default function AccountSettings() {
               <p className='text-muted-foreground'>
                 Additional security options will be available soon.
               </p>
+            </CardContent>
+          </Card>
+
+          <Card className='border-destructive'>
+            <CardHeader>
+              <CardTitle className='text-destructive'>Danger Zone</CardTitle>
+              <CardDescription>
+                Deleting your account is a permanent action and cannot be
+                undone.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant='destructive'>Delete Account</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Are you absolutely sure?</DialogTitle>
+                    <DialogDescription>
+                      This action cannot be undone. This will permanently delete
+                      your account and remove your data from our servers. If you
+                      are the primary manager of any stores, you must transfer
+                      primary ownership before deleting your account.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter className='sm:justify-start pt-4'>
+                    <DialogClose asChild>
+                      <Button type='button' variant='outline'>
+                        Cancel
+                      </Button>
+                    </DialogClose>
+                    <Button
+                      type='button'
+                      variant='destructive'
+                      onClick={handleDeleteAccount}
+                      disabled={isUpdating}
+                    >
+                      {isUpdating ? 'Deleting...' : 'Delete Account'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
         </TabsContent>
