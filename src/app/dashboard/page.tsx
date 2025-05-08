@@ -39,11 +39,15 @@ export default async function DashboardPage() {
       <div className='container mx-auto px-4 py-8 space-y-6'>
         <div className='flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0'>
           <h1 className='text-2xl font-semibold'>My Stores</h1>
-          <div className='flex flex-wrap gap-2'>
+          <div className='flex flex-col w-full gap-4 mt-6 mb-8 sm:mt-0 sm:mb-0 sm:flex-row sm:w-auto sm:flex-wrap sm:gap-2 sm:ml-auto'>
             <JoinStoreDialog
-              trigger={<Button className='w-full sm:w-auto'>Join Store</Button>}
+              trigger={
+                <Button className='w-full sm:w-auto px-6 py-3 text-base'>
+                  Join Store
+                </Button>
+              }
             />
-            <Button asChild className='w-full sm:w-auto'>
+            <Button asChild className='w-full sm:w-auto px-6 py-3 text-base'>
               <Link href='/dashboard/stores/new'>
                 <Plus className='w-4 h-4 mr-2' />
                 Create Store
@@ -105,11 +109,15 @@ export default async function DashboardPage() {
     <div className='container mx-auto px-4 py-8 space-y-8'>
       <div className='flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0'>
         <h1 className='text-2xl font-semibold'>My Stores</h1>
-        <div className='flex flex-wrap gap-2'>
+        <div className='flex flex-col w-full gap-4 mt-6 mb-8 sm:mt-0 sm:mb-0 sm:flex-row sm:w-auto sm:flex-wrap sm:gap-2 sm:ml-auto'>
           <JoinStoreDialog
-            trigger={<Button className='w-full sm:w-auto'>Join Store</Button>}
+            trigger={
+              <Button className='w-full sm:w-auto px-6 py-3 text-base'>
+                Join Store
+              </Button>
+            }
           />
-          <Button asChild className='w-full sm:w-auto'>
+          <Button asChild className='w-full sm:w-auto px-6 py-3 text-base'>
             <Link href='/dashboard/stores/new'>
               <Plus className='w-4 h-4 mr-2' />
               Create Store

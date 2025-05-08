@@ -144,26 +144,39 @@ export function JoinStoreDialog({ trigger }: Props) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className='sm:max-w-[425px]'>
+      <DialogContent className='sm:max-w-md rounded-lg'>
         <DialogHeader>
           <DialogTitle>Join Store</DialogTitle>
-          <DialogDescription>
-            Enter a store code to join as an employee.
+          <DialogDescription className='pt-2'>
+            Enter the 6-character store code to join as an employee.
           </DialogDescription>
         </DialogHeader>
-        <div className='py-4'>
+        <div className='py-6'>
           <Input
-            placeholder='Enter store code'
+            placeholder='Store Code'
             value={code}
-            onChange={(e) => setCode(e.target.value)}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
             maxLength={6}
+            className='h-11 text-center text-lg tracking-[0.3em] placeholder:tracking-normal'
+            autoCapitalize='characters'
+            autoCorrect='off'
           />
         </div>
-        <DialogFooter>
-          <Button onClick={() => setOpen(false)} variant='outline'>
+        <DialogFooter className='gap-3 sm:gap-0'>
+          <Button
+            type='button'
+            variant='outline'
+            onClick={() => setOpen(false)}
+            className='w-full sm:w-auto'
+          >
             Cancel
           </Button>
-          <Button onClick={handleJoinStore} disabled={loading}>
+          <Button
+            type='submit'
+            onClick={handleJoinStore}
+            disabled={loading}
+            className='w-full sm:w-auto'
+          >
             {loading ? 'Joining...' : 'Join Store'}
           </Button>
         </DialogFooter>

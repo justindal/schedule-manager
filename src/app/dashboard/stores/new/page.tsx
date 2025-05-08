@@ -100,8 +100,8 @@ export default function NewDashboardStore() {
   }
 
   return (
-    <div className='container mx-auto py-8'>
-      <Card className='max-w-2xl mx-auto'>
+    <div className='container mx-auto py-8 px-4 sm:px-6'>
+      <Card className='max-w-2xl mx-auto w-full'>
         <CardHeader>
           <CardTitle>Create New Store</CardTitle>
           <CardDescription>
@@ -109,7 +109,7 @@ export default function NewDashboardStore() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className='space-y-4'>
+          <form onSubmit={handleSubmit} className='space-y-5'>
             <div className='space-y-2'>
               <Label htmlFor='name'>Store Name</Label>
               <Input
@@ -117,6 +117,7 @@ export default function NewDashboardStore() {
                 name='name'
                 required
                 placeholder='Downtown Store'
+                className='w-full'
               />
             </div>
 
@@ -127,6 +128,7 @@ export default function NewDashboardStore() {
                 name='address'
                 required
                 placeholder='123 Main St'
+                className='w-full'
               />
             </div>
 
@@ -137,18 +139,24 @@ export default function NewDashboardStore() {
                 name='phone'
                 type='tel'
                 placeholder='(555) 123-4567'
+                className='w-full'
               />
             </div>
 
-            <div className='flex gap-4 pt-4'>
+            <div className='flex flex-col-reverse sm:flex-row gap-3 pt-4 mt-2'>
               <Button
                 type='button'
                 variant='outline'
                 onClick={() => router.back()}
+                className='w-full sm:w-auto'
               >
                 Cancel
               </Button>
-              <Button type='submit' disabled={loading}>
+              <Button
+                type='submit'
+                disabled={loading}
+                className='w-full sm:w-auto'
+              >
                 {loading ? 'Creating...' : 'Create Store'}
               </Button>
             </div>
