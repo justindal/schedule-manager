@@ -30,6 +30,8 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { flushSync } from 'react-dom'
+import React, { Suspense, memo } from 'react'
 
 import {
   ScheduleSkeleton,
@@ -44,6 +46,164 @@ import {
   AvailabilityToggle,
   AvailabilityData,
 } from '@/components/schedule'
+
+function processShiftsWithDeletedEmployees(rawShifts: Shift[]) {
+  if (!rawShifts || rawShifts.length === 0)
+    return { processedShifts: [], virtualEmployees: [] }
+
+  const deletedUserShifts = rawShifts.filter(
+    (shift) => shift.employee_id === null && shift.original_employee_name
+  )
+
+  if (deletedUserShifts.length === 0) {
+    return { processedShifts: rawShifts, virtualEmployees: [] }
+  }
+
+  const deletedUserMap = new Map<string, string>()
+
+  deletedUserShifts.forEach((shift) => {
+    if (shift.original_employee_name) {
+      const virtualId = `deleted-${shift.original_employee_name
+        .replace(/\s+/g, '-')
+        .toLowerCase()}`
+      deletedUserMap.set(virtualId, shift.original_employee_name)
+    }
+  })
+
+  const virtualEmployees = Array.from(deletedUserMap.entries()).map(
+    ([virtualId, originalName]) => {
+      return {
+        id: virtualId,
+        full_name: originalName,
+        is_manager: false,
+      }
+    }
+  )
+
+  const processedShifts = rawShifts.map((shift) => {
+    if (shift.employee_id === null && shift.original_employee_name) {
+      const virtualId = `deleted-${shift.original_employee_name
+        .replace(/\s+/g, '-')
+        .toLowerCase()}`
+      return {
+        ...shift,
+        employee_id: virtualId,
+      }
+    }
+    return shift
+  })
+
+  return { processedShifts, virtualEmployees }
+}
+
+const MemoizedScheduleSection = memo(function ScheduleSection({
+  storeName,
+  employees,
+  shifts,
+  weekDates,
+  isManagerView,
+  handleShiftClick,
+}: {
+  storeName: string
+  employees: Employee[]
+  shifts: Shift[]
+  weekDates: Date[]
+  isManagerView: boolean
+  handleShiftClick: (data: {
+    employeeId: string
+    date: Date
+    shift?: Shift
+  }) => void
+}) {
+  return (
+    <Card>
+      <CardHeader className='py-4'>
+        <CardTitle>Weekly Schedule</CardTitle>
+        <CardDescription>View all shifts for {storeName}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ScheduleTable
+          employees={employees}
+          shifts={shifts}
+          weekDates={weekDates}
+          viewOnly={!isManagerView}
+          onShiftClick={isManagerView ? handleShiftClick : undefined}
+        />
+      </CardContent>
+    </Card>
+  )
+})
+
+const MemoizedWeekNavigation = memo(function WeekNavigationSection({
+  currentWeek,
+  weekDates,
+  onWeekChange,
+  isManager,
+  isManagerView,
+  showAvailabilities,
+  onToggleAvailabilities,
+  onRefresh,
+}: {
+  currentWeek: Date
+  weekDates: Date[]
+  onWeekChange: (date: Date) => void
+  isManager: boolean
+  isManagerView: boolean
+  showAvailabilities: boolean
+  onToggleAvailabilities: () => void
+  onRefresh: () => void
+}) {
+  return (
+    <>
+      <WeekNavigation
+        currentWeek={currentWeek}
+        weekDates={weekDates}
+        onWeekChange={onWeekChange}
+      />
+
+      <div className='flex justify-end gap-2'>
+        <AvailabilityToggle
+          showAvailabilities={showAvailabilities}
+          onToggle={onToggleAvailabilities}
+        />
+
+        {isManager && isManagerView && (
+          <Button
+            variant='outline'
+            size='sm'
+            onClick={onRefresh}
+            className='flex items-center gap-1'
+          >
+            <RefreshCcw className='h-3.5 w-3.5' />
+            Refresh
+          </Button>
+        )}
+      </div>
+    </>
+  )
+})
+
+const MemoizedAvailabilitySection = memo(function AvailabilitySection({
+  showAvailabilities,
+  isLoadingAvailabilities,
+  employees,
+  availabilities,
+}: {
+  showAvailabilities: boolean
+  isLoadingAvailabilities: boolean
+  employees: Employee[]
+  availabilities: AvailabilityData[]
+}) {
+  if (!showAvailabilities) return null
+
+  return isLoadingAvailabilities ? (
+    <div className='h-[300px] w-full flex items-center justify-center'>
+      <div className='animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full'></div>
+    </div>
+  ) : (
+    <AvailabilityViewer employees={employees} availabilities={availabilities} />
+  )
+})
 
 export default function SchedulePage() {
   const params = useParams()
@@ -69,6 +229,14 @@ export default function SchedulePage() {
   const [availabilities, setAvailabilities] = useState<AvailabilityData[]>([])
   const [showAvailabilities, setShowAvailabilities] = useState(false)
   const [isLoadingAvailabilities, setIsLoadingAvailabilities] = useState(false)
+  const virtualEmployeesRef = useRef<Employee[]>([])
+  const [dataProcessed, setDataProcessed] = useState(false)
+  const [formerEmployees, setFormerEmployees] = useState<Employee[]>([])
+  const dataProcessingRef = useRef<boolean>(false)
+  const forceRenderRef = useRef<number>(0)
+  const [isReady, setIsReady] = useState(false)
+  const [initialLoad, setInitialLoad] = useState(true)
+  const [weekChangeLoading, setWeekChangeLoading] = useState(false)
 
   const weekDates = useMemo(
     () =>
@@ -78,6 +246,10 @@ export default function SchedulePage() {
       }),
     [currentWeek]
   )
+
+  useEffect(() => {
+    fetchData()
+  }, [])
 
   const checkUserRole = useCallback(async () => {
     try {
@@ -104,13 +276,32 @@ export default function SchedulePage() {
 
       return { isManager: !!managerData, isEmployee: !!employeeData }
     } catch (error) {
-      console.error('Error checking user role:', error)
       return { isManager: false, isEmployee: false }
     }
   }, [supabase, storeId])
 
+  const forceUpdate = useCallback(() => {
+    forceRenderRef.current += 1
+    setDataProcessed(true)
+  }, [])
+
   const fetchData = useCallback(async () => {
-    setLoading(true)
+    if (dataProcessingRef.current) {
+      return
+    }
+
+    dataProcessingRef.current = true
+
+    if (initialLoad) {
+      setLoading(true)
+      setDataProcessed(false)
+      setIsReady(false)
+    } else {
+      setWeekChangeLoading(true)
+    }
+
+    setFormerEmployees([])
+
     try {
       const { data: user } = await supabase.auth.getUser()
       if (!user?.user) {
@@ -120,6 +311,8 @@ export default function SchedulePage() {
           description: 'You must be logged in to view this page',
         })
         setLoading(false)
+        setWeekChangeLoading(false)
+        dataProcessingRef.current = false
         return
       }
 
@@ -143,20 +336,40 @@ export default function SchedulePage() {
         .eq('week_start_date', weekStart)
         .maybeSingle()
 
+      let processedShifts: Shift[] = []
+      let virtualEmployees: Employee[] = []
+
       if (scheduleData) {
         const { data: shiftData } = await supabase
           .from('shifts')
           .select('*')
           .eq('schedule_id', scheduleData.id)
 
-        setShifts(shiftData ?? [])
+        if (shiftData && shiftData.length > 0) {
+          const result = processShiftsWithDeletedEmployees(shiftData)
+          processedShifts = result.processedShifts
+          virtualEmployees = result.virtualEmployees
+
+          if (virtualEmployees.length > 0) {
+            setFormerEmployees(virtualEmployees)
+          } else {
+            setFormerEmployees([])
+          }
+        } else {
+          setFormerEmployees([])
+        }
+
+        setShifts(processedShifts)
       } else {
         setShifts([])
+        setFormerEmployees([])
       }
 
-      const userRole = await checkUserRole()
+      if (initialLoad) {
+        await checkUserRole()
+      }
 
-      if (userRole.isManager && isManagerView) {
+      if (isManager && isManagerView) {
         const { data: employeeData } = await supabase
           .from('store_employees')
           .select('employee_id')
@@ -171,7 +384,6 @@ export default function SchedulePage() {
         const managerIds = managerData?.map((m) => m.manager_id) || []
 
         const allPeopleIds = [...new Set([...employeeIds, ...managerIds])]
-        console.log('DEBUG all people IDs:', allPeopleIds)
 
         interface ProfileData {
           id: string
@@ -187,13 +399,8 @@ export default function SchedulePage() {
             .in('id', allPeopleIds)
 
           if (profileError) {
-            console.error('Error fetching profiles:', profileError)
           } else {
             allProfiles = profileData || []
-            console.log(
-              'DEBUG all profiles:',
-              JSON.stringify(allProfiles, null, 2)
-            )
           }
         }
 
@@ -225,17 +432,19 @@ export default function SchedulePage() {
           }
         })
 
-        setEmployees(Array.from(staffMap.values()))
+        const employees = Array.from(staffMap.values())
+
+        const finalEmployees = [
+          ...employees.sort((a, b) => a.full_name.localeCompare(b.full_name)),
+          ...virtualEmployees,
+        ]
+
+        setEmployees(finalEmployees)
       } else {
         const { data: employeeData } = await supabase
           .from('store_employees')
           .select('employee_id')
           .eq('store_id', storeId)
-
-        console.log(
-          'DEBUG employee IDs:',
-          JSON.stringify(employeeData, null, 2)
-        )
 
         let staffList: Employee[] = []
 
@@ -246,11 +455,6 @@ export default function SchedulePage() {
             .from('profiles')
             .select('id, full_name, email')
             .in('id', employeeIds)
-
-          console.log(
-            'DEBUG profile data:',
-            JSON.stringify(profileData, null, 2)
-          )
 
           staffList = employeeData.map((employee) => {
             const profile = profileData?.find(
@@ -264,10 +468,26 @@ export default function SchedulePage() {
           })
         }
 
-        setEmployees(staffList)
+        const finalEmployees = [
+          ...staffList.sort((a, b) => a.full_name.localeCompare(b.full_name)),
+          ...virtualEmployees,
+        ]
+
+        setEmployees(finalEmployees)
       }
+
+      flushSync(() => {
+        setDataProcessed(true)
+
+        if (initialLoad) {
+          setLoading(false)
+          setIsReady(true)
+          setInitialLoad(false)
+        } else {
+          setWeekChangeLoading(false)
+        }
+      })
     } catch (error) {
-      console.error('Error fetching schedule data:', error)
       toast({
         variant: 'destructive',
         title: 'Error loading schedule data',
@@ -275,10 +495,31 @@ export default function SchedulePage() {
       })
       setShifts([])
       setEmployees([])
+      setFormerEmployees([])
+      flushSync(() => {
+        setDataProcessed(true)
+
+        if (initialLoad) {
+          setLoading(false)
+          setIsReady(true)
+          setInitialLoad(false)
+        } else {
+          setWeekChangeLoading(false)
+        }
+      })
     } finally {
-      setLoading(false)
+      dataProcessingRef.current = false
     }
-  }, [supabase, storeId, storeName, currentWeek, checkUserRole, isManagerView])
+  }, [
+    supabase,
+    storeId,
+    storeName,
+    currentWeek,
+    checkUserRole,
+    isManagerView,
+    initialLoad,
+    isManager,
+  ])
 
   useEffect(() => {
     fetchData()
@@ -291,7 +532,6 @@ export default function SchedulePage() {
       }
       return timeString.slice(0, 5)
     } catch (error) {
-      console.error('Error extracting time:', error)
       return ''
     }
   }
@@ -310,6 +550,26 @@ export default function SchedulePage() {
     }
   }, [shiftModalOpen, editingShift])
 
+  const memoizedEmployees = useMemo(() => employees, [employees])
+  const memoizedShifts = useMemo(() => shifts, [shifts])
+  const memoizedWeekDates = useMemo(() => weekDates, [weekDates])
+  const memoizedStoreName = useMemo(() => storeName, [storeName])
+  const memoizedIsManager = useMemo(() => isManager, [isManager])
+  const memoizedIsManagerView = useMemo(() => isManagerView, [isManagerView])
+  const memoizedAvailabilities = useMemo(() => availabilities, [availabilities])
+
+  const handleWeekChange = useCallback((newWeek: Date) => {
+    setCurrentWeek(newWeek)
+  }, [])
+
+  const handleRefresh = useCallback(() => {
+    fetchData()
+  }, [fetchData])
+
+  const handleToggleAvailabilities = useCallback(() => {
+    setShowAvailabilities((prev) => !prev)
+  }, [])
+
   const handleShiftClick = useCallback(
     ({
       employeeId,
@@ -320,12 +580,25 @@ export default function SchedulePage() {
       date: Date
       shift?: Shift
     }) => {
-      setEditingEmployee(employees.find((e) => e.id === employeeId) || null)
+      if (employeeId.startsWith('deleted-')) {
+        if (shift) {
+          toast({
+            title: 'Former Employee',
+            description:
+              'This shift belongs to an employee who has deleted their account. The shift cannot be modified.',
+          })
+        }
+        return
+      }
+
+      setEditingEmployee(
+        memoizedEmployees.find((e) => e.id === employeeId) || null
+      )
       setEditingDate(date)
       setEditingShift(shift || null)
       setShiftModalOpen(true)
     },
-    [employees]
+    [memoizedEmployees, toast]
   )
 
   const closeShiftModal = useCallback(() => {
@@ -465,10 +738,6 @@ export default function SchedulePage() {
     }
   }
 
-  const memoizedEmployees = useMemo(() => employees, [employees])
-  const memoizedShifts = useMemo(() => shifts, [shifts])
-  const memoizedWeekDates = useMemo(() => weekDates, [weekDates])
-
   const fetchAvailabilities = useCallback(async () => {
     if (!showAvailabilities || !storeId) return
 
@@ -487,7 +756,6 @@ export default function SchedulePage() {
       if (error) throw error
       setAvailabilities(data || [])
     } catch (error) {
-      console.error('Error fetching availabilities:', error)
       toast({
         variant: 'destructive',
         title: 'Error loading availabilities',
@@ -502,11 +770,18 @@ export default function SchedulePage() {
     fetchAvailabilities()
   }, [fetchAvailabilities])
 
-  const handleToggleAvailabilities = useCallback(() => {
-    setShowAvailabilities((prev) => !prev)
-  }, [])
+  const WeekChangeLoadingIndicator = () => {
+    if (!weekChangeLoading) return null
 
-  if (loading) {
+    return (
+      <div className='fixed top-4 right-4 flex items-center gap-2 bg-primary/10 text-primary px-3 py-1.5 rounded-full text-sm'>
+        <div className='animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full'></div>
+        Loading...
+      </div>
+    )
+  }
+
+  if (!isReady) {
     return <ScheduleSkeleton />
   }
 
@@ -527,115 +802,111 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className='container mx-auto px-4 py-8 space-y-6'>
-      <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6'>
-        <h1 className='text-2xl font-semibold'>
-          {storeName}{' '}
+    <div className='container mx-auto px-2 sm:px-4 py-4 sm:py-8 space-y-4 sm:space-y-6'>
+      <WeekChangeLoadingIndicator />
+
+      <div className='flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6'>
+        <h1 className='text-xl sm:text-2xl font-semibold'>
+          {memoizedStoreName}{' '}
           <span className='text-muted-foreground font-normal'>Schedule</span>
         </h1>
       </div>
 
-      <WeekNavigation
-        currentWeek={currentWeek}
-        weekDates={weekDates}
-        onWeekChange={setCurrentWeek}
-      />
-
-      <div className='flex justify-end gap-2'>
-        <AvailabilityToggle
+      <div className='flex flex-col gap-2 sm:gap-0'>
+        <MemoizedWeekNavigation
+          currentWeek={currentWeek}
+          weekDates={memoizedWeekDates}
+          onWeekChange={handleWeekChange}
+          isManager={memoizedIsManager}
+          isManagerView={memoizedIsManagerView}
           showAvailabilities={showAvailabilities}
-          onToggle={handleToggleAvailabilities}
+          onToggleAvailabilities={handleToggleAvailabilities}
+          onRefresh={handleRefresh}
         />
-
-        {isManager && isManagerView && (
-          <Button
-            variant='outline'
-            size='sm'
-            onClick={() => fetchData()}
-            className='flex items-center gap-1'
-          >
-            <RefreshCcw className='h-3.5 w-3.5' />
-            Refresh
-          </Button>
-        )}
       </div>
 
-      {showAvailabilities &&
-        (isLoadingAvailabilities ? (
-          <div className='h-[300px] w-full flex items-center justify-center'>
-            <div className='animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full'></div>
-          </div>
-        ) : (
-          <AvailabilityViewer
-            employees={memoizedEmployees}
-            availabilities={availabilities}
-          />
-        ))}
+      <MemoizedAvailabilitySection
+        showAvailabilities={showAvailabilities}
+        isLoadingAvailabilities={isLoadingAvailabilities}
+        employees={memoizedEmployees}
+        availabilities={memoizedAvailabilities}
+      />
 
-      <Card>
-        <CardHeader className='py-4'>
-          <CardTitle>Weekly Schedule</CardTitle>
-          <CardDescription>View all shifts for {storeName}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ScheduleTable
+      <div className='-mx-2 sm:mx-0 overflow-x-auto pb-2 sm:pb-0'>
+        <div className='min-w-[400px] sm:min-w-0'>
+          <MemoizedScheduleSection
+            storeName={memoizedStoreName}
             employees={memoizedEmployees}
             shifts={memoizedShifts}
             weekDates={memoizedWeekDates}
-            viewOnly={!isManagerView}
-            onShiftClick={isManagerView ? handleShiftClick : undefined}
+            isManagerView={memoizedIsManagerView}
+            handleShiftClick={handleShiftClick}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <Dialog open={shiftModalOpen} onOpenChange={setShiftModalOpen}>
-        <DialogContent>
+        <DialogContent className='max-w-full w-[95vw] sm:w-[480px] p-4'>
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className='text-lg sm:text-xl'>
               {editingShift ? 'Edit Shift' : 'Add Shift'}
             </DialogTitle>
           </DialogHeader>
-          <div className='space-y-4'>
+          <div className='space-y-3 sm:space-y-4'>
             <div>
-              <div className='font-medium'>Employee</div>
-              <div>{editingEmployee?.full_name}</div>
+              <div className='font-medium text-sm sm:text-base'>Employee</div>
+              <div className='text-sm sm:text-base'>
+                {editingEmployee?.full_name}
+              </div>
             </div>
             <div>
-              <div className='font-medium'>Date</div>
-              <div>{editingDate ? format(editingDate, 'PPP') : ''}</div>
+              <div className='font-medium text-sm sm:text-base'>Date</div>
+              <div className='text-sm sm:text-base'>
+                {editingDate ? format(editingDate, 'PPP') : ''}
+              </div>
             </div>
             <div>
-              <label className='block font-medium mb-1'>Start Time</label>
+              <label className='block font-medium mb-1 text-sm sm:text-base'>
+                Start Time
+              </label>
               <Input
                 type='time'
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
                 disabled={modalLoading}
+                className='text-sm sm:text-base'
               />
             </div>
             <div>
-              <label className='block font-medium mb-1'>End Time</label>
+              <label className='block font-medium mb-1 text-sm sm:text-base'>
+                End Time
+              </label>
               <Input
                 type='time'
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
                 disabled={modalLoading}
+                className='text-sm sm:text-base'
               />
             </div>
             <div>
-              <label className='block font-medium mb-1'>Notes</label>
+              <label className='block font-medium mb-1 text-sm sm:text-base'>
+                Notes
+              </label>
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 disabled={modalLoading}
+                className='text-sm sm:text-base'
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className='flex flex-col sm:flex-row gap-2 sm:gap-0'>
             <Button
               variant='outline'
               onClick={closeShiftModal}
               disabled={modalLoading}
+              className='w-full sm:w-auto'
             >
               Cancel
             </Button>
@@ -644,11 +915,16 @@ export default function SchedulePage() {
                 variant='destructive'
                 onClick={handleDeleteShift}
                 disabled={modalLoading}
+                className='w-full sm:w-auto'
               >
                 Delete
               </Button>
             )}
-            <Button onClick={handleSaveShift} disabled={modalLoading}>
+            <Button
+              onClick={handleSaveShift}
+              disabled={modalLoading}
+              className='w-full sm:w-auto'
+            >
               {modalLoading
                 ? editingShift
                   ? 'Saving...'

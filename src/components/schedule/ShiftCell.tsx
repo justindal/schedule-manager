@@ -1,13 +1,14 @@
 import React, { memo } from 'react'
 import { format, parseISO } from 'date-fns'
 import { Shift, Employee, PendingOperation } from './types'
-import { Info, FileText } from 'lucide-react'
+import { Info, FileText, UserX, MinusCircle } from 'lucide-react'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Badge } from '@/components/ui/badge'
 
 const formatTimeString = (timeStr: string) => {
   try {
@@ -55,6 +56,8 @@ export const ShiftCell = memo(function ShiftCell({
   const dateString = format(date, 'yyyy-MM-dd')
   const isLoading = isShiftLoading?.(shift?.id)
 
+  const isFormerEmployee = employee.id.startsWith('deleted-')
+
   const isPending = Object.keys(pendingOperations).some((key) => {
     const [empId, opDate] = key.split(':')
     return (
@@ -65,7 +68,7 @@ export const ShiftCell = memo(function ShiftCell({
   })
 
   const handleCellClick = () => {
-    if (viewOnly || !onEditClick) return
+    if (viewOnly || !onEditClick || isFormerEmployee) return
     onEditClick({ employeeId: employee.id, date, shift })
   }
 
@@ -73,7 +76,9 @@ export const ShiftCell = memo(function ShiftCell({
     return (
       <div
         className={`w-full h-full p-2 ${
-          !viewOnly ? 'cursor-pointer hover:bg-muted/50' : ''
+          !viewOnly && !isFormerEmployee
+            ? 'cursor-pointer hover:bg-muted/50'
+            : ''
         } ${isPending ? 'animate-pulse' : ''}`}
         onClick={handleCellClick}
       >
@@ -85,16 +90,29 @@ export const ShiftCell = memo(function ShiftCell({
   return (
     <div
       className={`w-full h-full p-2 ${
-        !viewOnly ? 'cursor-pointer hover:bg-muted/50' : ''
-      } ${isLoading || isPending ? 'animate-pulse' : ''}`}
+        !viewOnly && !isFormerEmployee ? 'cursor-pointer hover:bg-muted/50' : ''
+      } ${isLoading || isPending ? 'animate-pulse' : ''} ${
+        isFormerEmployee
+          ? 'text-muted-foreground border-l-2 border-yellow-500 bg-yellow-50/30 dark:bg-yellow-950/10'
+          : ''
+      }`}
       onClick={handleCellClick}
     >
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className='text-sm whitespace-nowrap'>
-              {formatTimeString(shift.start_time)}-
-              {formatTimeString(shift.end_time)}
+            <div className='text-sm whitespace-nowrap flex items-center'>
+              <span className='truncate'>
+                {formatTimeString(shift.start_time)}-
+                {formatTimeString(shift.end_time)}
+              </span>
+
+              {isFormerEmployee && (
+                <span className='ml-1'>
+                  <UserX className='h-3.5 w-3.5 text-yellow-600 dark:text-yellow-500' />
+                </span>
+              )}
+
               {shift.notes && (
                 <span className='ml-1'>
                   {viewOnly ? (
@@ -106,11 +124,26 @@ export const ShiftCell = memo(function ShiftCell({
               )}
             </div>
           </TooltipTrigger>
-          {shift.notes && (
-            <TooltipContent>
+
+          <TooltipContent>
+            {isFormerEmployee ? (
+              <p className='max-w-xs font-normal break-words'>
+                <span className='font-semibold text-yellow-600 dark:text-yellow-500 flex items-center gap-1'>
+                  <UserX className='h-4 w-4' /> Former Employee
+                </span>
+                This shift belongs to an employee who has deleted their account.
+                {shift.notes && (
+                  <>
+                    <br />
+                    <br />
+                    <span className='font-semibold'>Notes:</span> {shift.notes}
+                  </>
+                )}
+              </p>
+            ) : shift.notes ? (
               <p className='max-w-xs font-normal break-words'>{shift.notes}</p>
-            </TooltipContent>
-          )}
+            ) : null}
+          </TooltipContent>
         </Tooltip>
       </TooltipProvider>
     </div>

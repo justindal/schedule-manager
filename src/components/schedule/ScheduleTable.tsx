@@ -11,6 +11,13 @@ import {
 import { ShiftCell } from './ShiftCell'
 import { calculateTotalHours } from './utils'
 import { Employee, Shift, PendingOperation } from './types'
+import { UserX } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface ScheduleTableProps {
   employees: Employee[]
@@ -35,70 +42,93 @@ export const ScheduleTable = memo(function ScheduleTable({
   pendingOperations = {},
   onShiftClick,
 }: ScheduleTableProps) {
+  const handleShiftClick = (data: {
+    employeeId: string
+    date: Date
+    shift?: Shift
+  }) => {
+    if (onShiftClick) {
+      onShiftClick(data)
+    }
+  }
+
   return (
-    <div className='overflow-x-auto'>
-      <div className='min-w-[800px]'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className='w-[200px] sticky left-0 bg-background z-10'>
-                Employee
+    <div className='rounded-md border overflow-hidden'>
+      <Table className='min-w-[700px]'>
+        <TableHeader>
+          <TableRow>
+            <TableHead className='w-[200px] bg-muted/50 sticky left-0'>
+              Employee
+            </TableHead>
+            {weekDates.map((date) => (
+              <TableHead
+                key={date.toString()}
+                className='text-center min-w-[110px]'
+              >
+                <div className='font-medium'>{format(date, 'EEE')}</div>
+                <div className='text-xs font-normal text-muted-foreground'>
+                  {format(date, 'MMM d')}
+                </div>
               </TableHead>
-              {weekDates.map((date) => (
-                <TableHead
-                  key={date.toString()}
-                  className='text-center min-w-[150px]'
-                >
-                  <div className='hidden sm:block'>
-                    {format(date, 'EEE ')}
-                    {format(date, 'MMM d')}
-                  </div>
-                  <div className='sm:hidden'>
-                    {format(date, 'E ')}
-                    {format(date, 'd')}
-                  </div>
-                </TableHead>
-              ))}
-              <TableHead className='text-center w-[100px]'>Hours</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {employees.map((employee) => (
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {employees.map((employee) => {
+            const isFormerEmployee = employee.id.startsWith('deleted-')
+
+            return (
               <TableRow key={employee.id}>
-                <TableCell className='font-medium sticky left-0 bg-background z-10'>
-                  {employee.full_name}
+                <TableCell className='font-medium bg-muted/50 sticky left-0 flex items-center gap-1.5'>
+                  {isFormerEmployee ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className='flex items-center gap-1.5 text-muted-foreground'>
+                            <UserX className='h-4 w-4 text-yellow-600 dark:text-yellow-500 flex-shrink-0' />
+                            <span>{employee.full_name}</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Former employee who has deleted their account.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    <span>{employee.full_name}</span>
+                  )}
                 </TableCell>
+
                 {weekDates.map((date) => {
+                  const dateString = format(date, 'yyyy-MM-dd')
                   const shift = shifts.find(
                     (s) =>
                       s.employee_id === employee.id &&
-                      s.start_time.split('T')[0] === format(date, 'yyyy-MM-dd')
+                      s.start_time.startsWith(dateString)
                   )
+
                   return (
                     <TableCell
-                      key={date.toString()}
-                      className='text-center p-0'
+                      key={`${employee.id}-${dateString}`}
+                      className='p-0 text-center h-16'
                     >
                       <ShiftCell
-                        shift={shift}
-                        date={date}
                         employee={employee}
+                        date={date}
+                        shift={shift}
                         viewOnly={viewOnly}
                         isShiftLoading={isShiftLoading}
                         pendingOperations={pendingOperations}
-                        onEditClick={onShiftClick}
+                        onEditClick={handleShiftClick}
                       />
                     </TableCell>
                   )
                 })}
-                <TableCell className='text-center font-medium'>
-                  {calculateTotalHours(shifts, employee.id).toFixed(2)}
-                </TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            )
+          })}
+        </TableBody>
+      </Table>
     </div>
   )
 })

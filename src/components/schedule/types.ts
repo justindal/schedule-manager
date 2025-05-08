@@ -12,11 +12,12 @@ export interface Employee {
 export interface Shift {
   id: string
   schedule_id: string
-  employee_id: string
+  employee_id: string | null
   start_time: string
   end_time: string
   break_duration?: string
   notes?: string
+  original_employee_name?: string
 }
 
 export interface Schedule {

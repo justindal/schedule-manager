@@ -425,10 +425,10 @@ export function UnifiedNavbar() {
                                 </SheetClose>
                                 <SheetClose asChild>
                                   <Link
-                                    href={`/store/${store.id}/availability`}
+                                    href={`/store/${store.id}/schedule`}
                                     className='block py-1.5 px-3 text-xs rounded-md hover:bg-accent text-muted-foreground hover:text-accent-foreground'
                                   >
-                                    View Availabilities
+                                    View Schedule
                                   </Link>
                                 </SheetClose>
                                 <SheetClose asChild>
