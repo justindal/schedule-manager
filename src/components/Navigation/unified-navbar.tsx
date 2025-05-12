@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import {
   Store,
@@ -138,10 +139,23 @@ export function UnifiedNavbar() {
       <div className='flex h-14 items-center justify-between px-4 md:px-8 lg:px-12'>
         <Link
           href='/dashboard'
-          className='flex items-center space-x-3 ml-1 md:ml-4'
+          className='flex items-center space-x-2 ml-1 md:ml-4'
         >
-          <Store className='h-6 w-6' />
-          <span className='font-bold sm:inline-block'>ShiftTrack</span>
+          <Image
+            src='/images/logo.png'
+            alt='ShiftTrack Logo'
+            width={32}
+            height={32}
+            className='h-8 w-8 rounded-lg dark:hidden'
+          />
+          <Image
+            src='/images/logo-dark.png'
+            alt='ShiftTrack Logo'
+            width={32}
+            height={32}
+            className='h-8 w-8 rounded-lg hidden dark:block'
+          />
+          <span className='font-bold sm:inline-block text-lg'>ShiftTrack</span>
         </Link>
 
         <div className='flex items-center space-x-2 md:space-x-4 mr-1 md:mr-4'>
@@ -248,8 +262,21 @@ export function UnifiedNavbar() {
                     className='flex items-center gap-3'
                     onClick={() => setOpen(false)}
                   >
-                    <Store className='h-5 w-5' />
-                    <span className='font-bold'>ShiftTrack</span>
+                    <Image
+                      src='/images/logo.png'
+                      alt='ShiftTrack Logo'
+                      width={32}
+                      height={32}
+                      className='h-8 w-8 rounded-lg dark:hidden'
+                    />
+                    <Image
+                      src='/images/logo-dark.png'
+                      alt='ShiftTrack Logo'
+                      width={32}
+                      height={32}
+                      className='h-8 w-8 rounded-lg hidden dark:block'
+                    />
+                    <span className='font-bold text-lg'>ShiftTrack</span>
                   </Link>
                 </SheetHeader>
                 <div className='flex-1 overflow-y-auto py-6 px-4'>

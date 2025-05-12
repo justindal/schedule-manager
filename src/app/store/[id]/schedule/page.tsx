@@ -161,7 +161,7 @@ const MemoizedWeekNavigation = memo(function WeekNavigationSection({
         onWeekChange={onWeekChange}
       />
 
-      <div className='flex justify-end gap-2'>
+      <div className='flex justify-end gap-2 mt-4'>
         <AvailabilityToggle
           showAvailabilities={showAvailabilities}
           onToggle={onToggleAvailabilities}

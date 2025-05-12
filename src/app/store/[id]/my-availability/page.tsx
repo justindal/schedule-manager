@@ -43,6 +43,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 
 interface AvailabilityData {
   id: string
@@ -448,62 +449,34 @@ export default function MyAvailabilityPage() {
                 <div className='grid grid-cols-2 gap-4 pt-2'>
                   <div className='space-y-2'>
                     <Label htmlFor='startTime'>Start Time</Label>
-                    <Select
+                    <Input
+                      id='startTime'
                       name='startTime'
+                      type='time'
+                      step='300'
                       defaultValue={
                         editingAvailability?.start_time?.slice(0, 5) || '09:00'
                       }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[...Array(24)].map((_, hour) => (
-                          <SelectItem
-                            key={hour}
-                            value={`${hour.toString().padStart(2, '0')}:00`}
-                          >
-                            {hour === 0
-                              ? '12:00 AM'
-                              : hour < 12
-                              ? `${hour}:00 AM`
-                              : hour === 12
-                              ? '12:00 PM'
-                              : `${hour - 12}:00 PM`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      className='w-full'
+                      disabled={isSubmitting}
+                      required
+                    />
                   </div>
 
                   <div className='space-y-2'>
                     <Label htmlFor='endTime'>End Time</Label>
-                    <Select
+                    <Input
+                      id='endTime'
                       name='endTime'
+                      type='time'
+                      step='300'
                       defaultValue={
                         editingAvailability?.end_time?.slice(0, 5) || '17:00'
                       }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[...Array(24)].map((_, hour) => (
-                          <SelectItem
-                            key={hour}
-                            value={`${hour.toString().padStart(2, '0')}:00`}
-                          >
-                            {hour === 0
-                              ? '12:00 AM'
-                              : hour < 12
-                              ? `${hour}:00 AM`
-                              : hour === 12
-                              ? '12:00 PM'
-                              : `${hour - 12}:00 PM`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      className='w-full'
+                      disabled={isSubmitting}
+                      required
+                    />
                   </div>
                 </div>
               )}

@@ -31,6 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from '@/components/ui/dialog'
 import {
   Select,
@@ -41,6 +42,7 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
+import { deleteStore } from '@/app/actions/store/delete-store'
 
 const REFRESH_INTERVAL_MS = 10000
 
@@ -242,6 +244,8 @@ export default function StoreDetail() {
   const [isSelfPrimaryManager, setIsSelfPrimaryManager] = useState(false)
   const [isApprovedManager, setIsApprovedManager] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeletingStore, setIsDeletingStore] = useState(false)
   const supabase = createClientBrowser()
 
   useEffect(() => {
@@ -698,6 +702,28 @@ export default function StoreDetail() {
     }
   }
 
+  async function handleDeleteStore() {
+    if (!storeDetails) return
+    setIsDeletingStore(true)
+
+    const result = await deleteStore(storeDetails.id)
+
+    if (result.success) {
+      toast({
+        title: 'Store Deleted',
+        description: 'The store has been successfully deleted.',
+      })
+      router.push('/dashboard')
+      setShowDeleteConfirm(false)
+    } else {
+      showError(
+        'Error Deleting Store',
+        result.error || 'Could not delete the store. Please try again.'
+      )
+    }
+    setIsDeletingStore(false)
+  }
+
   if (loading) {
     return <StoreDetailSkeleton />
   }
@@ -995,6 +1021,80 @@ export default function StoreDetail() {
           </Card>
         )}
       </div>
+
+      {/* This is the section for global store actions like Save, Edit, Delete */}
+      {(isApprovedManager || editing) && (
+        <div className='mt-6 flex gap-2'>
+          {editing ? (
+            <>
+              <Button type='submit' form='store-form' disabled={isSaving}>
+                {isSaving ? (
+                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                ) : (
+                  <Save className='mr-2 h-4 w-4' />
+                )}
+                Save Changes
+              </Button>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => setEditing(false)}
+                disabled={isSaving}
+              >
+                Cancel
+              </Button>
+            </>
+          ) : (
+            isApprovedManager && (
+              <Button onClick={() => setEditing(true)}>
+                <Edit className='mr-2 h-4 w-4' /> Edit Store Details
+              </Button>
+            )
+          )}
+          {/* Delete Store Button and Dialog */}
+          {isSelfPrimaryManager && !editing && (
+            <Dialog
+              open={showDeleteConfirm}
+              onOpenChange={setShowDeleteConfirm}
+            >
+              <DialogTrigger asChild>
+                <Button variant='destructive'>
+                  <Trash className='mr-2 h-4 w-4' /> Delete Store
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Are you absolutely sure?</DialogTitle>
+                  <DialogDescription>
+                    This action cannot be undone. This will permanently delete
+                    the store and all of its associated data, including
+                    schedules, availabilities, and employee assignments.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button
+                    variant='outline'
+                    onClick={() => setShowDeleteConfirm(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant='destructive'
+                    onClick={handleDeleteStore}
+                    disabled={isDeletingStore}
+                  >
+                    {isDeletingStore ? (
+                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                    ) : (
+                      'Yes, Delete Store'
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+      )}
     </div>
   )
 }
