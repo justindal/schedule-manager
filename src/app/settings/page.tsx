@@ -31,6 +31,8 @@ import {
   DialogClose,
 } from '@/components/ui/dialog'
 import { deleteUserAccount } from '@/app/actions/auth/delete-user'
+import { Sun, Moon, Laptop } from 'lucide-react'
+import { useTheme } from 'next-themes'
 
 function SettingsSkeleton() {
   return (
@@ -52,6 +54,59 @@ interface UserProfile {
   full_name: string
   email: string
   role: string
+}
+
+function ThemeSegmentedControl() {
+  const { theme, setTheme } = useTheme()
+  return (
+    <div className='flex w-full gap-2 mt-2'>
+      <button
+        type='button'
+        onClick={() => setTheme('light')}
+        className={`flex-1 flex flex-col items-center justify-center rounded-md border px-0 py-4 sm:py-6 transition-colors text-base font-medium
+          ${
+            theme === 'light'
+              ? 'bg-primary text-primary-foreground border-primary shadow'
+              : 'bg-muted text-muted-foreground border-border hover:bg-accent'
+          }
+        `}
+        aria-pressed={theme === 'light'}
+      >
+        <Sun className='h-6 w-6 mb-1' />
+        Light
+      </button>
+      <button
+        type='button'
+        onClick={() => setTheme('dark')}
+        className={`flex-1 flex flex-col items-center justify-center rounded-md border px-0 py-4 sm:py-6 transition-colors text-base font-medium
+          ${
+            theme === 'dark'
+              ? 'bg-primary text-primary-foreground border-primary shadow'
+              : 'bg-muted text-muted-foreground border-border hover:bg-accent'
+          }
+        `}
+        aria-pressed={theme === 'dark'}
+      >
+        <Moon className='h-6 w-6 mb-1' />
+        Dark
+      </button>
+      <button
+        type='button'
+        onClick={() => setTheme('system')}
+        className={`flex-1 flex flex-col items-center justify-center rounded-md border px-0 py-4 sm:py-6 transition-colors text-base font-medium
+          ${
+            theme === 'system'
+              ? 'bg-primary text-primary-foreground border-primary shadow'
+              : 'bg-muted text-muted-foreground border-border hover:bg-accent'
+          }
+        `}
+        aria-pressed={theme === 'system'}
+      >
+        <Laptop className='h-6 w-6 mb-1' />
+        System
+      </button>
+    </div>
+  )
 }
 
 export default function AccountSettings() {
@@ -195,7 +250,7 @@ export default function AccountSettings() {
   }
 
   return (
-    <div className='container mx-auto py-8 max-w-4xl'>
+    <div className='container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-4xl'>
       <div className='flex items-center gap-2 mb-6'>
         <Settings className='h-6 w-6' />
         <h1 className='text-2xl font-semibold'>Account Settings</h1>
@@ -214,17 +269,17 @@ export default function AccountSettings() {
         </TabsList>
 
         <TabsContent value='account' className='space-y-6'>
-          <Card>
+          <Card className='sm:p-6'>
             <CardHeader>
               <CardTitle>Appearance</CardTitle>
               <CardDescription>Choose your theme preference</CardDescription>
             </CardHeader>
             <CardContent>
-              <ModeToggle />
+              <ThemeSegmentedControl />
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className='sm:p-6'>
             <CardHeader>
               <CardTitle>Profile Information</CardTitle>
               <CardDescription>Your personal account details</CardDescription>
@@ -247,7 +302,7 @@ export default function AccountSettings() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className='sm:p-6'>
             <CardHeader>
               <CardTitle>Account Activity</CardTitle>
               <CardDescription>
@@ -278,7 +333,7 @@ export default function AccountSettings() {
         </TabsContent>
 
         <TabsContent value='security' className='space-y-6'>
-          <Card>
+          <Card className='sm:p-6'>
             <CardHeader>
               <CardTitle>Change Password</CardTitle>
               <CardDescription>
@@ -331,21 +386,7 @@ export default function AccountSettings() {
             )}
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Account Protection</CardTitle>
-              <CardDescription>
-                Enhance the security of your account
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className='text-muted-foreground'>
-                Additional security options will be available soon.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className='border-destructive'>
+          <Card className='border-destructive sm:p-6'>
             <CardHeader>
               <CardTitle className='text-destructive'>Danger Zone</CardTitle>
               <CardDescription>

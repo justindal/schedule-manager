@@ -474,6 +474,28 @@ export function UnifiedNavbar() {
                     )}
                   </Accordion>
                 </div>
+                <div className='mt-8 border-t pt-4 flex flex-col gap-2'>
+                  <SheetClose asChild>
+                    <Link
+                      href='/settings'
+                      className='w-full flex items-center gap-2 px-4 py-3 rounded-md text-base font-medium hover:bg-accent transition-colors'
+                    >
+                      <Settings className='h-5 w-5' />
+                      Settings
+                    </Link>
+                  </SheetClose>
+                  <Button
+                    variant='ghost'
+                    className='w-full flex items-center gap-2 px-4 py-3 rounded-md text-base font-medium text-destructive hover:bg-destructive/10'
+                    onClick={() => {
+                      setOpen(false)
+                      handleLogout()
+                    }}
+                  >
+                    <LogOut className='h-5 w-5' />
+                    Log Out
+                  </Button>
+                </div>
               </SheetContent>
             </Sheet>
           </div>

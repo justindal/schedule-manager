@@ -482,16 +482,21 @@ export default function MyAvailabilityPage() {
               )}
             </div>
 
-            <DialogFooter className='mt-4'>
+            <DialogFooter className='gap-3 sm:gap-2 flex-col-reverse sm:flex-row'>
               <Button
                 type='button'
                 variant='outline'
                 onClick={() => setEditingDay(null)}
                 disabled={isSubmitting}
+                className='w-full sm:w-auto'
               >
                 Cancel
               </Button>
-              <Button type='submit' disabled={isSubmitting}>
+              <Button
+                type='submit'
+                disabled={isSubmitting}
+                className='w-full sm:w-auto'
+              >
                 {isSubmitting ? 'Saving...' : 'Save Availability'}
               </Button>
             </DialogFooter>
